@@ -5,16 +5,6 @@ pub fn discover_installed_apps(
     config: &RuntimeConfig,
     tx: mpsc::SyncSender<look_indexing::Candidate>,
 ) {
-    #[cfg(target_os = "windows")]
-    {
-        crate::platform::discover_windows_installed_apps(config, tx);
-    }
-
-    #[cfg(target_os = "macos")]
-    {
-        crate::platform::discover_macos_installed_apps(config, tx);
-    }
-
     #[cfg(target_os = "linux")]
     {
         crate::platform::discover_linux_installed_apps(config, tx);

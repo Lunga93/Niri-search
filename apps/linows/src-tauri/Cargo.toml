@@ -12,7 +12,6 @@ tauri-plugin-single-instance = "2"
 look-answers = { path = "../../../core/answers" }
 look-calc = { path = "../../../core/calc" }
 look-engine = { path = "../../../core/engine" }
-look-lunar = { path = "../../../core/lunar" }
 look-matching = { path = "../../../core/matching" }
 look-netspeed = { path = "../../../core/netspeed" }
 look-qactions = { path = "../../../core/qactions" }

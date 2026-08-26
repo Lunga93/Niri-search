@@ -12,7 +12,6 @@ mod crash;
 mod files;
 mod health;
 mod highlight;
-mod lunar;
 mod music;
 mod netspeed;
 mod nowplaying;
@@ -560,6 +559,16 @@ fn main() {
     setup_dev_env();
 
     #[cfg(target_os = "linux")]
+    #[cfg(target_os = "linux")]
+    {
+        // Disable DMABUF renderer on Wayland where GBM buffer allocation fails.
+        if platform::linux::transparency::is_wayland() {
+            unsafe {
+                std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+            }
+        }
+    }
+
     let disable_gpu = gpu::detect_and_disable_virtual_gpu() || gpu::arch_disable_gpu_from_config();
 
     sync_autostart();
@@ -765,7 +774,6 @@ fn main() {
             weather::weather_current,
             nowplaying::now_playing_current,
             nowplaying::now_playing_command,
-            lunar::lunar_date,
             netspeed::speed_test,
             netspeed::local_ipv4,
             // Clipboard

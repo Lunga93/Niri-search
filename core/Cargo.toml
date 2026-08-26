@@ -1,12 +1,10 @@
 [workspace]
 members = [
-  "ai",
   "qactions",
   "answers",
   "calc",
   "engine",
   "indexing",
-  "lunar",
   "matching",
   "netspeed",
   "ranking",
