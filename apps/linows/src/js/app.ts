@@ -706,7 +706,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // timeout.
         requestAnimationFrame(() =>
             requestAnimationFrame(() => {
-                confirmHide((event as any).payload).catch(() => {});
+                confirmHide((event as CustomEvent).detail).catch(() => {});
             }),
         );
     });

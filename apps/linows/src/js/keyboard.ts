@@ -522,7 +522,7 @@ async function handleTrashShortcut() {
         }
         try {
             await requestIndexRefresh();
-        } catch {}
+        } catch { // empty}
     } catch { // empty
         banner.show(`Trash failed: ${err}`, 'error', 2.0);
     }
@@ -553,7 +553,7 @@ async function handleEmptyTrash() {
         banner.show(`Emptied ${label} (${purged})`, 'success', 1.4);
         try {
             await requestIndexRefresh();
-        } catch {}
+        } catch { // empty}
     } catch { // empty
         banner.show(`Empty ${label} failed: ${err}`, 'error', 2.0);
     }
