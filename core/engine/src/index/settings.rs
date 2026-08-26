@@ -18,12 +18,7 @@ pub fn discover_system_settings_entries(
             emit_entry(&tx, entry, &display_title(entry, &localized));
         }
 
-        // Windows extras: classic .cpl / .msc / .exe applets that Settings
-        // doesn't cover (env vars, Device Manager, Services, Registry, Task
-        // Manager, …). Paths use the `look-cmd://` scheme so the Tauri launcher
-        // knows to spawn them via Command::new rather than ShellExecute.
-        #[cfg(target_os = "windows")]
-        emit_windows_control_panel_entries(&tx);
+
     } else {
         emit_settings_fallback_entries(&tx);
     }
@@ -90,25 +85,7 @@ fn localized_titles(localized_app_names: bool) -> LocalizedTitles {
 fn display_title(entry: &SettingsCatalogEntry, localized: &LocalizedTitles) -> String {
     match localized.get(entry.target) {
         Some(localized_title) => format!("{localized_title} ({})", entry.title),
-        None => entry.title.to_string(),
-    }
-}
-
-#[cfg(target_os = "windows")]
-fn emit_windows_control_panel_entries(tx: &mpsc::SyncSender<Candidate>) {
-    for entry in platform::windows_control_panel_catalog() {
-        let mut candidate = Candidate::new(
-            &format!(
-                "{SETTINGS_CANDIDATE_ID_PREFIX}{}",
-                entry.candidate_id_suffix
-            ),
-            CandidateKind::App,
-            entry.title,
-            &platform::windows_control_panel_target_path(entry),
-        );
-        candidate.subtitle =
-            Some(format!("{}{}", platform::settings_subtitle_prefix(), entry.aliases).into());
-        let _ = tx.send(candidate);
+        None =>     entry.title.to_string(),
     }
 }
 
@@ -292,10 +269,6 @@ mod tests {
         let expected_len = if platform::has_settings_app() {
             #[allow(unused_mut)]
             let mut total = platform::settings_catalog().len();
-            #[cfg(target_os = "windows")]
-            {
-                total += platform::windows_control_panel_catalog().len();
-            }
             total
         } else {
             // The only no-settings-app case is Linux, which still surfaces the

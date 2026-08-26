@@ -7,9 +7,9 @@
 
 mod catalog;
 mod compose;
+mod windows_terminals;
 mod quote;
 mod resolved;
-mod windows_terminals;
 
 pub use catalog::{
     AppleScript, CommandStyle, DEFAULT_COMMAND_STYLE, Surface, TERMINAL_NAMES, TERMINALS,
