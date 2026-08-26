@@ -44,9 +44,8 @@
 - **Lines removed:** ~1,000 (estimated)
 - **What:** Kept module structure, replaced implementations with no-ops
 - **Why:** Preserving architecture for future Niri-specific implementation
-- **Performance impact:** Compiles but does nothing — placeholder for real impl
+- **Performance impact:** Compiles but does nothing — placeholder for real impl## What was added
 
-## What was added
 
 | Addition | Lines | Purpose |
 |----------|-------|---------|
@@ -54,6 +53,8 @@
 | Tailwind CSS setup | +100 | tailwind.config.js, postcss.config.js |
 | Vite build pipeline | +50 | vite.config.ts |
 | TypeScript IPC layer | +300 | Typed wrappers for Tauri IPC |
+| Type definitions | +200 | types/index.ts with all interfaces |
+| Type checking | +50 | checkJs enabled, DOM casts fixed |
 | LEARNINGS.md | +200 | Patterns worth adopting |
 | TRIM_REPORT.md | +100 | This document |
 
@@ -96,16 +97,18 @@
 | ~~Windows platform~~ | ✅ Removed | 4,667 lines |
 | ~~Lunar crate~~ | ✅ Removed | 203 lines |
 | Linux stubs → real impl | ⏳ Pending | Replace no-ops with Niri-specific code |
-| Frontend TypeScript conversion | ⏳ Pending | 38 JS files → TypeScript |
+| Frontend TypeScript conversion | 🔄 In Progress | 193 type errors remaining (from 221) |
 | Tailwind CSS migration | ⏳ Pending | Replace raw CSS with Tailwind |
 
-## Next steps
+## TypeScript Migration Progress
 
-1. **Replace Linux stubs** with Niri-specific implementations
-2. **Convert frontend** to TypeScript + Tailwind
-3. **Profile runtime** — measure memory, CPU, startup time
-4. **Benchmark search** — fuzzy matching performance
-5. **Load test** — D-Bus concurrent requests
+| Metric | Value |
+|--------|-------|
+| **Files converted** | 4 of 38 (10%) |
+| **Type errors fixed** | 28 of 221 (13%) |
+| **Remaining errors** | 193 |
+| **Main error type** | TS2339 (Property does not exist on type) |
+| **Strategy** | Gradual: checkJs enabled, cast fixes |
 
 ---
 
