@@ -559,7 +559,6 @@ fn main() {
     setup_dev_env();
 
     #[cfg(target_os = "linux")]
-    #[cfg(target_os = "linux")]
     {
         // Disable DMABUF renderer on Wayland where GBM buffer allocation fails.
         if platform::linux::transparency::is_wayland() {
@@ -569,6 +568,7 @@ fn main() {
         }
     }
 
+    #[cfg(target_os = "linux")]
     let disable_gpu = gpu::detect_and_disable_virtual_gpu() || gpu::arch_disable_gpu_from_config();
 
     sync_autostart();
