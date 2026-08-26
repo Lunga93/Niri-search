@@ -98,11 +98,6 @@ pub(crate) fn default_db_path() -> PathBuf {
         return PathBuf::from(custom);
     }
 
-    #[cfg(target_os = "windows")]
-    if let Some(path) = windows_default_db_path() {
-        return path;
-    }
-
     legacy_default_db_path()
 }
 
@@ -113,14 +108,6 @@ fn legacy_default_db_path() -> PathBuf {
         .join("Application Support")
         .join("look")
         .join("look.db")
-}
-
-#[cfg(target_os = "windows")]
-fn windows_default_db_path() -> Option<PathBuf> {
-    env::var("LOCALAPPDATA")
-        .ok()
-        .filter(|value| !value.trim().is_empty())
-        .map(|base| PathBuf::from(base).join("look").join("look.db"))
 }
 
 pub(crate) fn with_engine<T>(f: impl FnOnce(&QueryEngine) -> T) -> T {
@@ -596,16 +583,5 @@ mod tests {
         assert!(path_str.contains("Library"));
         assert!(path_str.contains("Application Support"));
         assert!(path_str.ends_with("look.db"));
-    }
-
-    #[cfg(target_os = "windows")]
-    #[test]
-    fn windows_path_uses_localappdata_shape() {
-        let path = super::windows_default_db_path();
-        if let Some(path) = path {
-            let path_str = path.to_string_lossy().to_ascii_lowercase();
-            assert!(path_str.contains("look"));
-            assert!(path_str.ends_with("look.db"));
-        }
     }
 }

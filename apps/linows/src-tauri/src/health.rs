@@ -39,16 +39,38 @@ pub fn report(id: &'static str, message: String) {
 }
 
 /// For an id with more than one failure mode: `kind` tells them apart.
+/// Subsequent reports for the same id replace the previous message (the
+/// failure may have changed — e.g. a retried service starts successfully).
 pub fn report_as(id: &'static str, kind: &'static str, message: String) {
     {
         let Ok(mut issues) = ISSUES.lock() else {
             return;
         };
-        if issues.iter().any(|i| i.id == id) {
+        if let Some(existing) = issues.iter_mut().find(|i| i.id == id) {
+            existing.kind = kind;
+            existing.message = message;
+        } else {
+            eprintln!("[look:health] {message}");
+            issues.push(HealthIssue { id, kind, message });
+        }
+    }
+    if let Some(handle) = crate::state::app_handle() {
+        let _ = handle.emit(EVENT_HEALTH_CHANGED, snapshot());
+    }
+}
+
+/// Remove a previously reported issue by id. Call when a failure recovers
+/// (e.g. the D-Bus service starts successfully after earlier retries).
+pub fn clear(id: &str) {
+    {
+        let Ok(mut issues) = ISSUES.lock() else {
+            return;
+        };
+        let before = issues.len();
+        issues.retain(|i| i.id != id);
+        if issues.len() == before {
             return;
         }
-        eprintln!("[look:health] {message}");
-        issues.push(HealthIssue { id, kind, message });
     }
     if let Some(handle) = crate::state::app_handle() {
         let _ = handle.emit(EVENT_HEALTH_CHANGED, snapshot());

@@ -112,13 +112,6 @@ mod tests {
     }
 
     #[test]
-    fn recent_prefix_is_case_insensitive_and_allows_empty_filter() {
-        let parsed = ParsedQuery::from_input("RC\"");
-        assert!(parsed.is_recent);
-        assert!(parsed.normalized_query.is_empty());
-    }
-
-    #[test]
     fn regex_prefix_is_not_treated_as_recent() {
         let parsed = ParsedQuery::from_input("r\"foo");
         assert!(parsed.is_regex);

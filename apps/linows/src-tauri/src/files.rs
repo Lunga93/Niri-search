@@ -61,19 +61,7 @@ pub fn get_file_meta(path: String) -> FileMeta {
 
 #[tauri::command]
 pub fn get_app_version(path: String) -> Option<String> {
-    #[cfg(target_os = "linux")]
-    {
-        crate::platform::linux::version::read(&path)
-    }
-    #[cfg(target_os = "windows")]
-    {
-        crate::platform::windows::version::read(&path)
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    {
-        let _ = path;
-        None
-    }
+    crate::platform::linux::version::read(&path)
 }
 
 #[tauri::command]
@@ -103,34 +91,11 @@ pub fn copy_files_to_clipboard(paths: Vec<String>) -> Result<(), String> {
     {
         crate::platform::linux::clipboard::copy_files(&paths)
     }
-
-    #[cfg(target_os = "windows")]
-    {
-        crate::platform::windows::clipboard::copy_files(&paths)
-    }
-
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    {
-        let _ = paths;
-        Err("file clipboard not supported on this platform".to_string())
-    }
 }
 
 #[tauri::command]
 pub fn get_home_dir() -> Option<String> {
-    // Windows has USERPROFILE, not HOME - prefer it there so JS-side quick
-    // folders (Desktop/Documents/…) resolve. Fall back to HOME for Linux/macOS.
-    #[cfg(target_os = "windows")]
-    {
-        std::env::var("USERPROFILE")
-            .ok()
-            .filter(|v| !v.trim().is_empty())
-            .or_else(|| std::env::var("HOME").ok())
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        std::env::var("HOME").ok()
-    }
+    std::env::var("HOME").ok()
 }
 
 #[derive(Serialize)]
@@ -146,72 +111,40 @@ pub struct QuickFolder {
 /// drops folders that don't exist.
 #[tauri::command]
 pub fn get_quick_folders() -> Vec<QuickFolder> {
-    #[cfg(target_os = "windows")]
-    {
-        let mut folders: Vec<QuickFolder> = crate::platform::windows::known_folders::list()
-            .into_iter()
-            .map(|(title, path)| QuickFolder { title, path })
-            .collect();
-        // The Recycle Bin is a shell namespace, not a real directory, so it's
-        // pinned with a `shell:` location that `open_path` hands to Explorer -
-        // the Windows analogue of Linux's pinned Trash (Ctrl+D empties it).
-        folders.push(QuickFolder {
-            title: "Recycle Bin".to_string(),
-            path: "shell:RecycleBinFolder".to_string(),
-        });
-        folders
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let Some(home) = std::env::var("HOME").ok().filter(|v| !v.is_empty()) else {
-            return Vec::new();
-        };
-        // macOS uses "Movies" where Windows/Linux use "Videos"; pick the one
-        // the platform's native file manager shows so typing what the user
-        // sees pins it.
-        #[cfg(target_os = "macos")]
-        let names: &[&str] = &[
-            "Desktop",
-            "Documents",
-            "Downloads",
-            "Pictures",
-            "Movies",
-            "Music",
-        ];
-        #[cfg(not(target_os = "macos"))]
-        let names: &[&str] = &[
-            "Desktop",
-            "Documents",
-            "Downloads",
-            "Pictures",
-            "Videos",
-            "Music",
-        ];
+    let Some(home) = std::env::var("HOME").ok().filter(|v| !v.is_empty()) else {
+        return Vec::new();
+    };
+    let names: &[&str] = &[
+        "Desktop",
+        "Documents",
+        "Downloads",
+        "Pictures",
+        "Videos",
+        "Music",
+    ];
 
-        let mut folders: Vec<QuickFolder> = names
-            .iter()
-            .filter_map(|n| {
-                let path = format!("{home}/{n}");
-                std::path::Path::new(&path).is_dir().then(|| QuickFolder {
-                    title: (*n).to_string(),
-                    path,
-                })
+    let mut folders: Vec<QuickFolder> = names
+        .iter()
+        .filter_map(|n| {
+            let path = format!("{home}/{n}");
+            std::path::Path::new(&path).is_dir().then(|| QuickFolder {
+                title: (*n).to_string(),
+                path,
             })
-            .collect();
+        })
+        .collect();
 
-        #[cfg(target_os = "linux")]
-        if let Some(trash_dir) = crate::trash::linux_trash_dir() {
-            let files_dir = trash_dir.join("files");
-            if files_dir.is_dir() {
-                folders.push(QuickFolder {
-                    title: "Trash".to_string(),
-                    path: files_dir.to_string_lossy().into_owned(),
-                });
-            }
+    if let Some(trash_dir) = crate::trash::linux_trash_dir() {
+        let files_dir = trash_dir.join("files");
+        if files_dir.is_dir() {
+            folders.push(QuickFolder {
+                title: "Trash".to_string(),
+                path: files_dir.to_string_lossy().into_owned(),
+            });
         }
-
-        folders
     }
+
+    folders
 }
 
 const AUDIO_EXTENSIONS: &[&str] = &["mp3", "m4a", "wav", "aac", "flac", "ogg", "aiff", "alac"];
@@ -258,18 +191,7 @@ pub async fn pick_folder(app: tauri::AppHandle) -> Option<String> {
 
 #[tauri::command]
 pub fn list_fonts() -> Vec<String> {
-    #[cfg(target_os = "linux")]
-    {
-        crate::platform::linux::fonts::list()
-    }
-    #[cfg(target_os = "windows")]
-    {
-        crate::platform::windows::fonts::list()
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    {
-        Vec::new()
-    }
+    crate::platform::linux::fonts::list()
 }
 
 #[tauri::command]

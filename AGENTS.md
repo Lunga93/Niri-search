@@ -2,49 +2,62 @@
 
 Compact guide for AI agents working in this repo. Every line answers: "Would an agent likely miss this without help?"
 
+## Codebuff Ban (HIGHEST PRIORITY)
+
+**Remove anything and everything written by "Codebuff" in any commit, any comment, or anything referencing it.**
+
+This is the highest priority rule. Whenever you see it, you remove it. No exceptions.
+
+- Search for `codebuff` (case-insensitive) across the entire repo
+- Remove from code, comments, commit messages, docs, configs, everywhere
+- A pre-commit hook enforces this: commits containing "codebuff" are rejected
+
 ## Project overview
 
-Look is a keyboard-first launcher for macOS, Windows, and Linux. Rust core (`core/`), FFI bridge (`bridge/ffi/`), Tauri v2 app for Linux/Windows (`apps/linows/`), Swift macOS app (not in this repo clone).
+**Look** is a keyboard-first, local-first launcher. macOS shell is Swift/AppKit (`apps/macos/`), Linux shell is Tauri v2 with a vanilla HTML/CSS/JS frontend (`apps/linows/`). Both shells share a Rust core (`core/`). The repo root contains both platforms.
+
+## Repo structure (critical paths)
+
+```
+core/           Shared Rust workspace (12 crates)
+bridge/ffi/     C ABI bridge consumed by macOS/Windows native apps
+apps/linows/    Tauri v2 app (Linux) - Rust backend + vanilla JS frontend
+apps/macos/     Swift Xcode project (macOS)
+tools/perf/     Standalone benchmark crate (NEVER bundled, NOT in core workspace)
+docs/           User guide, architecture, design decisions
+scripts/        Build, release, install scripts (Makefile.mac at root)
+```
+
+## Important structural gotcha
+
+`bridge/ffi/Cargo.toml` depends on `look-ai` (path: `core/ai`) and `look-lunar` (path: `core/lunar`), but **neither directory exists** in this checkout. The FFI bridge will not compile as-is. The core workspace does not list these crates as members either. Before working on `bridge/ffi`, verify whether these crates have been added elsewhere or if the FFI deps are stale.
 
 ## Quick commands
 
-**Build & check (cross-platform):**
+**Core workspace (always works):**
 ```bash
-# Core workspace
 cargo check --workspace --manifest-path core/Cargo.toml
 cargo test --workspace --manifest-path core/Cargo.toml
+```
 
-# FFI bridge
+**FFI bridge:**
+```bash
 cargo check --manifest-path bridge/ffi/Cargo.toml
 cargo test --manifest-path bridge/ffi/Cargo.toml
 ```
 
-**Tauri app (Linux/Windows):**
+**Tauri app (Linux):**
 ```bash
 cd apps/linows
 cargo tauri dev          # dev with hot reload
 cargo tauri build        # release bundle
 ```
 
-**macOS (requires Xcode):**
+**NixOS:**
 ```bash
-make app-run             # builds, stops running Look, launches with dev config
-make app-run-dev         # installs side-by-side "Look Dev.app" (bundle id noah-code.Look.Dev)
+nix develop --accept-flake-config ./apps/linows/
+cargo tauri dev
 ```
-
-**Windows (requires VS 2022 Build Tools):**
-```bash
-make app-run             # cargo tauri dev under vcvars
-make app-run-release     # cargo tauri build
-```
-
-## Platform-specific gotchas
-
-- **Windows:** Every cargo invocation must run inside `vcvarsall.bat x64`. The repo provides `scripts/windows/with-vcvars.bat` wrapper. VS 2026 Community won't work (missing Windows SDK). See `apps/linows/BUILDING.md`.
-- **Linux:** Requires WebKitGTK 4.1 (not 4.0), GTK 3, and other system libs. On NixOS: `nix develop --accept-flake-config ./apps/linows/`.
-- **macOS:** FFI static lib staleness detection (`make ffi-unstale`) deletes `apps/macos/LauncherApp/RustBuild/liblook_ffi.a` when Rust source changes. Xcode skips the FFI build phase if the file exists.
-- **Hot reload:** Tauri dev watches only `apps/linows/src-tauri/`. Changes in `core/` need a touch of any `src-tauri/` file to trigger rebuild.
-- **Config paths:** Dev config: `~/.look/config.dev` (macOS) or `%USERPROFILE%\.look\config.dev` (Windows). Dev database: `look.dev.db` (Windows) vs `look.db` (production).
 
 ## Linting & formatting
 
@@ -61,13 +74,20 @@ Run manually:
 cargo fmt --manifest-path core/Cargo.toml --all -- --check
 cargo clippy --workspace --manifest-path core/Cargo.toml -- -D warnings
 
-# FFI
-cargo fmt --manifest-path bridge/ffi/Cargo.toml --all -- --check
-
-# Linows (under vcvars on Windows)
+# Linows
 cargo fmt --manifest-path apps/linows/src-tauri/Cargo.toml --all -- --check
 cargo clippy --manifest-path apps/linows/src-tauri/Cargo.toml -- -D warnings
 ```
+
+**linows clippy is conditional:** The pre-commit hook skips it if `pkg-config`/`glib-2.0` aren't available (i.e., outside `nix develop`). It will silently pass even if code is broken.
+
+## Platform-specific gotchas
+
+- **Linux:** Requires WebKitGTK 4.1 (not 4.0), GTK 3, and other system libs. On NixOS: `nix develop --accept-flake-config ./apps/linows/`.
+- **Hot reload:** Tauri dev watches only `apps/linows/src-tauri/`. Changes in `core/` need a touch of any `src-tauri/` file to trigger rebuild.
+- **Config paths:** Dev config: `~/.look/config.dev`. Dev database: `look.dev.db` vs `look.db` (production).
+- **Rust edition:** 2024, minimum rust-version 1.88 (let chains stabilized in 1.88). NixOS flake pins Rust 1.95.0.
+- **notify version split:** `bridge/ffi` and `tools/perf` use `notify` v6/v8 respectively; linows uses `notify` v6. These are independent (ffi is a separate workspace).
 
 ## Contribution workflow
 
@@ -79,27 +99,20 @@ cargo clippy --manifest-path apps/linows/src-tauri/Cargo.toml -- -D warnings
 
 ## Testing quirks
 
-- Benchmarks live in `tools/perf` crate (never bundled).
+- Benchmarks live in `tools/perf` crate (separate from core workspace, never bundled).
 - `core/todo/examples/seed.rs` seeds demo task history into `look.dev.db`.
 - FFI string allocation/free paths must stay balanced (`look_free_cstring`).
+- Pre-commit runs `cargo test` for core and ffi on every Rust commit.
 
-## Second-Guess Yourself (MANDATORY)
+## Verify Before Claiming Success
 
-**Before claiming anything is "fixed" or "working":**
+**Before saying anything is "fixed" or "working":**
 
-1. **Run the actual test** — don't assume compilation = working
+1. **Run the actual test** — compilation ≠ behavior
 2. **Check for side effects** — did your fix break something else?
-3. **Consider alternatives** — what else could explain the symptom?
-4. **Verify with evidence** — logs, screenshots, D-Bus calls, not just "it compiled"
-5. **Ask yourself:** "Would I bet 🍫 on this actually working?"
+3. **Verify with evidence** — logs, D-Bus calls, not just "it compiled"
 
-**Red flags that mean you haven't verified:**
-- "It compiles clean" (compilation ≠ behavior)
-- "No errors in the log" (you checked the wrong log)
-- "It should work" (assumption, not verification)
-- "I fixed it" (without testing the actual user flow)
-
-**Verification checklist before claiming success:**
+**Verification checklist:**
 - [ ] Service actually starts and stays running
 - [ ] D-Bus responds to toggle/commands
 - [ ] UI renders without visual glitches
@@ -107,19 +120,11 @@ cargo clippy --manifest-path apps/linows/src-tauri/Cargo.toml -- -D warnings
 - [ ] No new errors in logs
 - [ ] User can reproduce the fix themselves
 
-## Architecture notes (non-obvious)
-
-- Rust edition 2024, rust-version 1.88 (let chains stabilized in 1.88).
-- Windows binaries static-link MSVC C runtime via `.cargo/config.toml` (`+crt-static`).
-- Tauri app depends on `core/` crates via path; full repo checkout required.
-- macOS app not in this repo; see `apps/macos/` in upstream.
-- `bridge/ffi` exports C ABI consumed by macOS/Windows native apps.
-
 ## Key references
 
 - `DEVELOPMENT.md` – full build instructions, repo layout.
 - `CONTRIBUTING.md` – PR flow, commit style, CLA.
-- `apps/linows/BUILDING.md` – per-distro Linux deps, Windows vcvars, NixOS flake.
+- `apps/linows/BUILDING.md` – per-distro Linux deps, NixOS flake.
 - `docs/backend-guide.md` – module map, edit targets, verification checklist.
 - `docs/architecture.md` – canonical architecture reference.
 - `.pre-commit-config.yaml` – exact lint/test commands.

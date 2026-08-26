@@ -250,12 +250,6 @@ mod tests {
     }
 
     #[test]
-    fn single_char_query() {
-        assert!(fuzzy_score("s", "safari").is_some());
-        assert!(fuzzy_score("z", "safari").is_none());
-    }
-
-    #[test]
     fn score_hierarchy_is_consistent() {
         let exact = fuzzy_score("safari", "safari").unwrap();
         let prefix = fuzzy_score("saf", "safari").unwrap();

@@ -51,18 +51,7 @@ fn snapshot() -> &'static Mutex<Vec<ProcRow>> {
 }
 
 fn list_all_raw() -> Vec<ProcRow> {
-    #[cfg(target_os = "linux")]
-    {
-        crate::platform::linux::process::list_all()
-    }
-    #[cfg(target_os = "windows")]
-    {
-        crate::platform::windows::process::list_all()
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    {
-        Vec::new()
-    }
+    crate::platform::linux::process::list_all()
 }
 
 /// Scores for numeric-query matches, ranked above fuzzy name matches so an
@@ -269,19 +258,7 @@ fn proc_target(r: ProcRow) -> KillTarget {
 
 #[tauri::command]
 pub fn process_detail(pid: u32) -> Option<ProcDetail> {
-    #[cfg(target_os = "linux")]
-    {
-        crate::platform::linux::process::detail(pid)
-    }
-    #[cfg(target_os = "windows")]
-    {
-        crate::platform::windows::process::detail(pid)
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    {
-        let _ = pid;
-        None
-    }
+    crate::platform::linux::process::detail(pid)
 }
 
 /// Sample CPU usage for one process over a short interval. On-demand (bound to
@@ -291,19 +268,7 @@ pub fn process_detail(pid: u32) -> Option<ProcDetail> {
 #[tauri::command]
 pub async fn process_cpu(pid: u32) -> Option<f64> {
     tauri::async_runtime::spawn_blocking(move || {
-        #[cfg(target_os = "linux")]
-        {
-            crate::platform::linux::process::cpu(pid)
-        }
-        #[cfg(target_os = "windows")]
-        {
-            crate::platform::windows::process::cpu(pid)
-        }
-        #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-        {
-            let _ = pid;
-            None
-        }
+        crate::platform::linux::process::cpu(pid)
     })
     .await
     .ok()
@@ -312,20 +277,7 @@ pub async fn process_cpu(pid: u32) -> Option<f64> {
 
 #[tauri::command]
 pub fn list_processes() -> Vec<RunningApp> {
-    #[cfg(target_os = "linux")]
-    {
-        crate::platform::linux::process::list()
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        crate::platform::windows::process::list()
-    }
-
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    {
-        Vec::new()
-    }
+    crate::platform::linux::process::list()
 }
 
 /// List running GUI apps (apps with visible windows).
@@ -333,22 +285,7 @@ pub fn list_processes() -> Vec<RunningApp> {
 /// services, terminal apps, and input methods - only switchable apps remain.
 #[tauri::command]
 pub fn list_running_apps() -> Vec<RunningApp> {
-    #[cfg(target_os = "linux")]
-    {
-        crate::platform::linux::process::list_gui()
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        // Switcher-specific view: includes UWP apps (Settings, Calculator, …)
-        // hosted by ApplicationFrameHost that list()/kill deliberately hides.
-        crate::platform::windows::process::list_gui()
-    }
-
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    {
-        Vec::new()
-    }
+    crate::platform::linux::process::list_gui()
 }
 
 /// Activate (focus) a running app's window. On Linux, dispatches to the
@@ -363,83 +300,36 @@ pub fn activate_running_app(
 ) -> Result<bool, String> {
     let _ = (&pid, &exec); // may be unused on some platforms
 
-    #[cfg(target_os = "linux")]
+    // Try focus via desktop file metadata (WM_CLASS, app_id, etc.)
+    if let Some(ref id) = desktop_id
+        && let Some(desktop_path) = id.strip_prefix("app:")
+        && crate::commands::try_focus_existing_pub(desktop_path)
     {
-        // Try focus via desktop file metadata (WM_CLASS, app_id, etc.)
-        if let Some(ref id) = desktop_id
-            && let Some(desktop_path) = id.strip_prefix("app:")
-            && crate::commands::try_focus_existing_pub(desktop_path)
-        {
+        crate::commands::hide_now(&window);
+        return Ok(true);
+    }
+    // Fallback: try focusing by exec binary name
+    if let Some(ref exec_str) = exec {
+        let bin = std::path::Path::new(
+            exec_str
+                .split_whitespace()
+                .find(|t| !t.contains('='))
+                .unwrap_or(exec_str),
+        )
+        .file_name()
+        .and_then(|f| f.to_str())
+        .unwrap_or("");
+        if !bin.is_empty() && crate::commands::try_focus_window_pub(bin) {
             crate::commands::hide_now(&window);
             return Ok(true);
         }
-        // Fallback: try focusing by exec binary name
-        if let Some(ref exec_str) = exec {
-            let bin = std::path::Path::new(
-                exec_str
-                    .split_whitespace()
-                    .find(|t| !t.contains('='))
-                    .unwrap_or(exec_str),
-            )
-            .file_name()
-            .and_then(|f| f.to_str())
-            .unwrap_or("");
-            if !bin.is_empty() && crate::commands::try_focus_window_pub(bin) {
-                crate::commands::hide_now(&window);
-                return Ok(true);
-            }
-        }
-        Ok(false)
     }
-
-    #[cfg(target_os = "windows")]
-    {
-        if let Some(ref id) = desktop_id {
-            // UWP windows (Settings, …) are addressed by HWND: several share one
-            // ApplicationFrameHost PID, so exe-path matching can't disambiguate.
-            if let Some(raw) = id.strip_prefix("hwnd:") {
-                if let Ok(h) = raw.parse::<isize>()
-                    && crate::platform::windows::window_focus::focus_hwnd(h)
-                {
-                    crate::commands::hide_now(&window);
-                    return Ok(true);
-                }
-                return Ok(false);
-            }
-            if let Some(path) = id.strip_prefix("app:")
-                && crate::platform::windows::window_focus::try_focus_existing(path)
-            {
-                crate::commands::hide_now(&window);
-                return Ok(true);
-            }
-        }
-        Ok(false)
-    }
-
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    {
-        let _ = (window, desktop_id);
-        Ok(false)
-    }
+    Ok(false)
 }
 
 #[tauri::command]
 pub fn kill_process(pid: u32) -> Result<String, String> {
-    #[cfg(target_os = "linux")]
-    {
-        crate::platform::linux::process::kill(pid)
-    }
-
-    #[cfg(target_os = "windows")]
-    {
-        crate::platform::windows::process::kill(pid)
-    }
-
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    {
-        let _ = pid;
-        Err("kill not supported on this platform".to_string())
-    }
+    crate::platform::linux::process::kill(pid)
 }
 
 #[cfg(test)]

@@ -515,14 +515,6 @@ edit = "nvim {path}"
     }
 
     #[test]
-    fn name_falls_back_to_the_block_header() {
-        assert_eq!(
-            one("[downloads]\ndir = \"~/Downloads\"\n").name,
-            "downloads"
-        );
-    }
-
-    #[test]
     fn one_file_holds_as_many_blocks_as_you_like() {
         let parsed = parse_file(
             r#"

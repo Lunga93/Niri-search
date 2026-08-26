@@ -4,20 +4,6 @@ const POLL_INTERVAL_MS: u64 = 50;
 
 #[tauri::command]
 pub fn run_shell_command(cmd: String) -> Result<String, String> {
-    // sh on Unix, cmd /C on Windows. The frontend doesn't know which it's on
-    // and lets the user type whatever fits their muscle memory.
-    #[cfg(target_os = "windows")]
-    let spawned = {
-        use std::os::windows::process::CommandExt;
-        std::process::Command::new("cmd")
-            .args(["/C", &cmd])
-            .stdin(std::process::Stdio::null())
-            .stdout(std::process::Stdio::piped())
-            .stderr(std::process::Stdio::piped())
-            .creation_flags(crate::consts::CREATE_NO_WINDOW)
-            .spawn()
-    };
-    #[cfg(not(target_os = "windows"))]
     let spawned = crate::platform::linux::host_command("sh")
         .args(["-c", &cmd])
         .stdin(std::process::Stdio::null())

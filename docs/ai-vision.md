@@ -392,8 +392,7 @@ EventKit deep and native, Shortcuts broad and cheap.
 Caveat: a Shortcut can do anything, so this is a raw-power capability. Gate it
 like raw shell: preview what will run, confirm before running, off by default.
 
-Windows and Linux analogues exist but are weaker: Windows has Power Automate /
-PowerShell; Linux automation is desktop-dependent. macOS-first again.
+Windows and Linux analogues exist but are weaker: Linux automation is desktop-dependent. macOS-first again.
 
 ## Open decisions (connectors)
 

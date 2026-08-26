@@ -7,7 +7,7 @@
 /// trailing zeros removed. E.g. `26252.49`, `0.000038`, `1,234.5`.
 pub fn format_number(value: f64) -> String {
     let decimals = if value.abs() < 1.0 { 6 } else { 2 };
-    let fixed = format!("{:.*}", decimals, value);
+    let fixed = format!("{value:.decimals$}");
     let trimmed = if fixed.contains('.') {
         fixed
             .trim_end_matches('0')

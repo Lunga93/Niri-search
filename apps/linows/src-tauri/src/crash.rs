@@ -1,8 +1,8 @@
 //! Last-resort crash reporting for failures the health notice can't reach.
 //!
-//! The health banner needs a live webview; a panic during startup (WebView2
-//! missing on Windows, plugin init, the setup hook) kills the process before
-//! one exists, and a menu-launched Look dies as an invisible no-show. The
+//! The health banner needs a live webview; a panic during startup (plugin init,
+//! the setup hook) kills the process before one exists, and a menu-launched
+//! Look dies as an invisible no-show. The
 //! panic hook writes the panic to a crash log and, for main-thread panics,
 //! shows a native dialog that doesn't depend on the webview.
 //!
@@ -87,27 +87,6 @@ fn show_native_dialog(message: &str, log_path: Option<&Path>) {
     native_error_dialog(&text);
 }
 
-#[cfg(target_os = "windows")]
-fn native_error_dialog(text: &str) {
-    use windows::Win32::UI::WindowsAndMessaging::{MB_ICONERROR, MessageBoxW};
-    use windows::core::PCWSTR;
-
-    let to_wide = |s: &str| -> Vec<u16> { s.encode_utf16().chain(std::iter::once(0)).collect() };
-    let text_w = to_wide(text);
-    let title_w = to_wide(DIALOG_TITLE);
-    // MessageBoxW only needs user32.dll, so it works even when the crash is
-    // WebView2 itself failing to initialize.
-    unsafe {
-        MessageBoxW(
-            None,
-            PCWSTR(text_w.as_ptr()),
-            PCWSTR(title_w.as_ptr()),
-            MB_ICONERROR,
-        );
-    }
-}
-
-#[cfg(target_os = "linux")]
 fn native_error_dialog(text: &str) {
     use crate::platform::linux::host_command;
 

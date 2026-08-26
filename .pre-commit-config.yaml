@@ -87,6 +87,13 @@ repos:
         language: system
         pass_filenames: false
 
+      - id: codebuff-ban
+        name: Reject anything containing "codebuff"
+        entry: bash -c 'git diff --cached --diff-filter=ACMR -U0 | grep -i "codebuff" && echo "ERROR: Found \"codebuff\" in staged changes. Remove all references to Codebuff." && exit 1 || exit 0'
+        language: system
+        pass_filenames: false
+        always_run: true
+
 ci:
   autoupdate_schedule: monthly
   autoupdate_commit_msg: "chore: update pre-commit hooks"

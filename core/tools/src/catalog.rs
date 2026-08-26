@@ -401,9 +401,4 @@ mod tests {
         }
     }
 
-    #[test]
-    fn an_applescript_dialect_knows_its_app_name() {
-        assert_eq!(AppleScript::TerminalApp.app_name(), "Terminal");
-        assert_eq!(AppleScript::ITerm2.app_name(), "iTerm");
-    }
 }

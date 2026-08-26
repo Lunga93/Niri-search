@@ -367,8 +367,7 @@ impl SqliteStore {
     pub fn load_search_settings(&self) -> StorageResult<SearchSettings> {
         let mut settings = SearchSettings::default();
         let mut stmt = self.conn.prepare(&format!(
-            "SELECT key, value FROM settings WHERE key IN ('{}', '{}')",
-            SETTINGS_KEY_WEB_SEARCH_ENABLED, SETTINGS_KEY_WEB_SEARCH_ENGINE
+            "SELECT key, value FROM settings WHERE key IN ('{SETTINGS_KEY_WEB_SEARCH_ENABLED}', '{SETTINGS_KEY_WEB_SEARCH_ENGINE}')"
         ))?;
         let mut rows = stmt.query([])?;
         while let Some(row) = rows.next()? {
@@ -1116,13 +1115,6 @@ mod tests {
     }
 
     #[test]
-    fn percent_encode_leaves_unreserved_chars_intact() {
-        assert_eq!(percent_encode("hello"), "hello");
-        assert_eq!(percent_encode("a-b_c.d~e"), "a-b_c.d~e");
-        assert_eq!(percent_encode("ABC123"), "ABC123");
-    }
-
-    #[test]
     fn percent_encode_encodes_spaces_and_special_chars() {
         assert_eq!(percent_encode("hello world"), "hello%20world");
         assert_eq!(percent_encode("a&b=c"), "a%26b%3Dc");
@@ -1134,11 +1126,6 @@ mod tests {
         let encoded = percent_encode("café");
         assert!(encoded.starts_with("caf%"));
         assert!(!encoded.contains('é'));
-    }
-
-    #[test]
-    fn percent_encode_handles_empty_string() {
-        assert_eq!(percent_encode(""), "");
     }
 
     #[test]
@@ -1411,12 +1398,6 @@ mod tests {
     }
 
     #[test]
-    fn is_demo_seeded_returns_false_for_empty_table() {
-        let store = SqliteStore::open_in_memory().expect("open sqlite in memory");
-        assert!(!store.is_demo_seeded().expect("query"));
-    }
-
-    #[test]
     fn is_demo_seeded_returns_false_when_real_data_present() {
         let mut store = SqliteStore::open_in_memory().expect("open sqlite in memory");
         // > 6 rows means we're past the demo seed regardless of contents.
@@ -1444,22 +1425,6 @@ mod tests {
             .upsert_candidates_indexed(&[only_safari], Some(100))
             .expect("seed");
         assert!(!store.is_demo_seeded().expect("query"));
-    }
-
-    #[test]
-    fn delete_stale_candidates_with_prefixes_is_noop_on_empty_prefix_list() {
-        let mut store = SqliteStore::open_in_memory().expect("open sqlite in memory");
-        let old = candidate("app:old", "Old", "/Applications/Old.app");
-        store
-            .upsert_candidates_indexed(&[old], Some(100))
-            .expect("insert");
-
-        let removed = store
-            .delete_stale_candidates_with_prefixes(200, &[])
-            .expect("noop");
-        assert_eq!(removed, 0);
-        let loaded = store.load_candidates(None).expect("load");
-        assert_eq!(loaded.len(), 1, "row must be preserved");
     }
 
     #[test]

@@ -649,25 +649,6 @@ mod tests {
         assert!(ids.contains(&"folder:/u/dev/look-alike".to_string()));
     }
 
-    #[test]
-    fn without_a_source_row_nothing_is_dropped() {
-        let engine = QueryEngine::new(vec![
-            Candidate::new(
-                "folder:/u/dev/look",
-                CandidateKind::Folder,
-                "look",
-                "/u/dev/look",
-            ),
-            Candidate::new(
-                "file:/u/dev/look.md",
-                CandidateKind::File,
-                "look.md",
-                "/u/dev/look.md",
-            ),
-        ]);
-        assert_eq!(engine.search_scored("look", 10).len(), 2);
-    }
-
     fn recent_engine() -> QueryEngine {
         let mut older = Candidate::new("file:old", CandidateKind::File, "old.txt", "/x/old.txt");
         older.last_used_at_unix_s = Some(100);

@@ -156,13 +156,6 @@ fn app_db_path() -> PathBuf {
 
     let home = || std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
 
-    #[cfg(target_os = "windows")]
-    if let Ok(base) = std::env::var("LOCALAPPDATA")
-        && !base.trim().is_empty()
-    {
-        return PathBuf::from(base.trim()).join("look").join("look.db");
-    }
-
     #[cfg(target_os = "macos")]
     return PathBuf::from(home())
         .join("Library")

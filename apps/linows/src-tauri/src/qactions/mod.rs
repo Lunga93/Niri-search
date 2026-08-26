@@ -9,12 +9,12 @@
 //! Adapters block (D-Bus, CLIs), so state/apply run on the blocking pool,
 //! mirroring `answers.rs`.
 
-// Adapters exist for Linux and Windows (see `controls`); on any other target
-// nothing constructs the success-path states/outcomes/values of the shared
-// types below - they exist only to serialize back to the frontend. Silence the
+// Adapters exist for Linux (see `controls`); on any other target nothing
+// constructs the success-path states/outcomes/values of the shared types
+// below - they exist only to serialize back to the frontend. Silence the
 // resulting dead_code lint there; a future adapter would use them and this
 // lifts on its own.
-#![cfg_attr(not(any(target_os = "linux", target_os = "windows")), allow(dead_code))]
+#![cfg_attr(not(target_os = "linux"), allow(dead_code))]
 
 pub mod controls;
 
@@ -32,8 +32,8 @@ pub enum ActionState {
     /// Shut Down) return it empty: they have no on/off value, but a resolved
     /// state marks them present so the launchpad renders them wired. Battery
     /// returns the charge percent here.
-    // Constructed on Linux and Windows; dead only on a target with no adapters.
-    #[cfg_attr(not(any(target_os = "linux", target_os = "windows")), allow(dead_code))]
+    // Constructed on Linux; dead only on a target with no adapters.
+    #[cfg_attr(not(target_os = "linux"), allow(dead_code))]
     Value {
         value: String,
     },
@@ -142,7 +142,6 @@ pub trait SystemControl: Send + Sync {
 /// Resolves an action id to its native adapter - the one-line-per-control
 /// registry. An id with a shared descriptor but no adapter here renders as
 /// unavailable (declaration is shared across OSes; execution is not).
-#[cfg(target_os = "linux")]
 fn adapter(action_id: &str) -> Option<&'static dyn SystemControl> {
     use look_qactions::action_id as id;
     match action_id {
@@ -157,28 +156,6 @@ fn adapter(action_id: &str) -> Option<&'static dyn SystemControl> {
         id::BATTERY => Some(&controls::battery::BatteryControl),
         _ => None,
     }
-}
-
-#[cfg(target_os = "windows")]
-fn adapter(action_id: &str) -> Option<&'static dyn SystemControl> {
-    use look_qactions::action_id as id;
-    match action_id {
-        id::BLUETOOTH => Some(&controls::bluetooth_windows::BluetoothControl),
-        id::WIFI => Some(&controls::wifi_windows::WifiControl),
-        id::THEME => Some(&controls::theme_windows::ThemeControl),
-        id::KEEP_AWAKE => Some(&controls::keepawake_windows::KeepAwakeControl),
-        id::MIC => Some(&controls::mic_windows::MicControl),
-        id::SCREENSAVER => Some(&controls::screensaver_windows::ScreensaverControl),
-        id::RESTART => Some(&controls::power_windows::RestartControl),
-        id::SHUTDOWN => Some(&controls::power_windows::ShutdownControl),
-        id::BATTERY => Some(&controls::battery_windows::BatteryControl),
-        _ => None,
-    }
-}
-
-#[cfg(not(any(target_os = "linux", target_os = "windows")))]
-fn adapter(_action_id: &str) -> Option<&'static dyn SystemControl> {
-    None
 }
 
 const UNAVAILABLE_ON_OS: &str = "Not supported on this system";

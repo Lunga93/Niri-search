@@ -15,10 +15,7 @@ use look_tools::{Launch, Resolved};
 
 use crate::sources::RowArgs;
 
-#[cfg(target_os = "linux")]
 use crate::platform::linux::tools as platform_tools;
-#[cfg(target_os = "windows")]
-use crate::platform::windows::tools as platform_tools;
 
 /// Said when a tool is declared but nothing by that name can be started.
 const LAUNCH_FAILED: &str = "Could not start";

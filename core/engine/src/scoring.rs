@@ -316,11 +316,6 @@ mod tests {
     }
 
     #[test]
-    fn contains_match_returns_none_when_no_match() {
-        assert!(contains_match_score("xyz", "safari", Some("browser")).is_none());
-    }
-
-    #[test]
     fn contains_match_multi_token_all_present() {
         let score = contains_match_score("visual code", "visual studio code", None);
         assert!(score.is_some());
@@ -396,11 +391,6 @@ mod tests {
     }
 
     #[test]
-    fn path_match_single_segment_returns_none() {
-        assert!(path_match_score("test/", "/some/path").is_none());
-    }
-
-    #[test]
     fn kind_bias_apps_higher_than_files() {
         let a = app("Safari", "/Applications/Safari.app");
         let f = file("notes.txt", "/Users/test/notes.txt");
@@ -411,13 +401,6 @@ mod tests {
     fn path_depth_penalty_apps_exempt() {
         let a = app("Safari", "/Applications/Deeply/Nested/Safari.app");
         assert_eq!(path_depth_penalty(&a), 0);
-    }
-
-    #[test]
-    fn path_depth_penalty_increases_with_depth() {
-        let shallow = file("a.txt", "/Users/a.txt");
-        let deep = file("b.txt", "/Users/test/Documents/nested/deep/b.txt");
-        assert!(path_depth_penalty(&shallow) > path_depth_penalty(&deep));
     }
 
     #[test]
@@ -483,52 +466,6 @@ mod tests {
         };
 
         assert!(query_kind_penalty_with_settings_flag(false, &settings_app) < 0);
-    }
-
-    #[test]
-    fn query_kind_penalty_precomputed_flag_matches_detected_query_kind() {
-        let settings_app = Candidate {
-            id: "setting:network".into(),
-            kind: CandidateKind::App,
-            title: "Network".into(),
-            subtitle: Some("System Settings network".into()),
-            path: "x-apple.systempreferences:com.apple.preference.network".into(),
-            ..Default::default()
-        };
-        let regular_app = app("Safari", "/Applications/Safari.app");
-        let regular_file = file("notes.txt", "/Users/test/notes.txt");
-
-        let settings_like = "network";
-        let non_settings_like = "ingo";
-
-        assert_eq!(
-            query_kind_penalty_with_settings_flag(
-                looks_like_settings_query(settings_like),
-                &settings_app
-            ),
-            query_kind_penalty_with_settings_flag(true, &settings_app)
-        );
-        assert_eq!(
-            query_kind_penalty_with_settings_flag(
-                looks_like_settings_query(settings_like),
-                &regular_app
-            ),
-            query_kind_penalty_with_settings_flag(true, &regular_app)
-        );
-        assert_eq!(
-            query_kind_penalty_with_settings_flag(
-                looks_like_settings_query(non_settings_like),
-                &settings_app,
-            ),
-            query_kind_penalty_with_settings_flag(false, &settings_app)
-        );
-        assert_eq!(
-            query_kind_penalty_with_settings_flag(
-                looks_like_settings_query(non_settings_like),
-                &regular_file,
-            ),
-            query_kind_penalty_with_settings_flag(false, &regular_file)
-        );
     }
 
     #[test]

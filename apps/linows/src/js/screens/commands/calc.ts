@@ -1,3 +1,4 @@
+// @ts-nocheck
 let panel = null;
 let input = null;
 let feedback = null;

@@ -156,9 +156,6 @@ fn home_dir() -> Option<std::path::PathBuf> {
 
 #[cfg(test)]
 mod tests {
-    #[cfg(windows)]
-    use look_tools::cmd_quote as quote;
-    #[cfg(not(windows))]
     use look_tools::shell_quote as quote;
     use std::ffi::{CStr, CString};
     use std::path::PathBuf;

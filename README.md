@@ -2,12 +2,10 @@
 
 <img src="assets/icon.png" alt="look icon" width="96" />
 
-A keyboard-first, local-first launcher for macOS, Windows, and Linux. Open apps, files, folders, clipboard history, and quick commands without leaving the keyboard.
+A keyboard-first, local-first launcher for Linux (Niri compositor). Open apps, files, folders, clipboard history, and quick commands without leaving the keyboard.
 
 [![Install](https://img.shields.io/badge/install-555)](#install)
-[![macOS](https://img.shields.io/badge/macOS-000000?logo=apple&logoColor=white)](#macos)
 [![Linux](https://img.shields.io/badge/Linux-brightgreen?logo=linux&logoColor=white)](#linux)
-[![Windows](https://img.shields.io/badge/Windows-0078D4)](#windows)
 [![Latest release](https://img.shields.io/github/v/release/kunkka19xx/look)](https://github.com/kunkka19xx/look/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/kunkka19xx/look/total)](https://github.com/kunkka19xx/look/releases)
 [![License: GPLv3](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
@@ -16,14 +14,14 @@ A keyboard-first, local-first launcher for macOS, Windows, and Linux. Open apps,
 
 https://github.com/user-attachments/assets/167b028b-04b2-4c62-ba93-c2321482ac94
 
-Results land as fast as you can type. A Rust core under a native SwiftUI app on macOS, and Tauri on Windows and Linux, riding the system WebView instead of shipping a browser like Electron does. No background daemons. Your index, clipboard, and history stay on your machine; no telemetry.
+Results land as fast as you can type. A Rust core under a Tauri app, riding the system WebView instead of shipping a browser like Electron does. No background daemons. Your index, clipboard, and history stay on your machine; no telemetry.
 
 <details>
 <summary><b>How it compares</b></summary>
 
 |                 | **look**                | Spotlight  | Raycast            | Alfred       | ulauncher  | rofi       |
 | --------------- | ----------------------- | ---------- | ------------------ | ------------ | ---------- | ---------- |
-| Platform        | macOS · Windows · Linux | macOS only | macOS · Win (beta) | macOS only   | Linux only | Linux only |
+| Platform        | Linux only              | macOS only | macOS · Win (beta) | macOS only   | Linux only | Linux only |
 | Open source     | ✅ GPLv3                | ❌         | ❌                 | ❌           | ✅         | ✅         |
 | Local-first     | ✅                      | ✅         | ❌ cloud sync      | ✅           | ✅         | ✅         |
 | No Electron     | ✅                      | ✅         | ❌                 | ✅           | ✅         | ✅         |
@@ -183,40 +181,6 @@ window-rule {
 
 To build from source, see [apps/linows/BUILDING.md](apps/linows/BUILDING.md).
 
-### Windows
-
-Released artifacts are **x86_64 only**. Windows on ARM (Surface Pro X / Snapdragon X) can run the x64 build under emulation; native ARM builds aren't published - open an issue if you need one.
-
-One PowerShell line, no admin required:
-
-```powershell
-iex "& { $(irm https://raw.githubusercontent.com/kunkka19xx/look/main/scripts/windows/install-look.ps1) }"
-```
-
-Or with [Scoop](https://scoop.sh/) (if you already have it installed):
-
-```powershell
-scoop bucket add extras
-scoop install extras/look
-```
-
-The script resolves the latest release, downloads the NSIS installer, verifies its SHA256 against the published checksums, and runs it silently into `%LOCALAPPDATA%\Programs\Look`. SmartScreen will warn on the first download while reputation builds - click "More info → Run anyway" if Windows blocks the script itself.
-
-Uninstall:
-
-```powershell
-# Scoop
-scoop uninstall look
-
-# Installer script
-iex "& { $(irm https://raw.githubusercontent.com/kunkka19xx/look/main/scripts/windows/install-look.ps1) } -Uninstall"
-
-# Optional: wipe user data
-Remove-Item -Recurse "$env:LOCALAPPDATA\look"
-```
-
-The launcher's global hotkey is `Alt+Space` (not user-configurable yet - if it conflicts with another app you use, remap that one). For a manual install: download `Look_<version>_x64-setup.exe` from [Releases](https://github.com/kunkka19xx/look/releases/latest), verify the SHA256 against the published `Look-<version>-windows-checksums.txt`, then run. Uninstall via Settings → Apps or `%LOCALAPPDATA%\Programs\Look\uninstall.exe`. To wipe user data: `Remove-Item -Recurse "$env:LOCALAPPDATA\look"`.
-
 <details>
 <summary>Other install options (curl, pin version, update/uninstall)</summary>
 
@@ -260,22 +224,22 @@ open "/Applications/Look.app"
 
 ## Essential shortcuts
 
-| Action                                                                 | macOS            | Windows             | Linux            |
-| ---------------------------------------------------------------------- | ---------------- | ------------------- | ---------------- |
-| Toggle launcher                                                        | `Cmd+Space`      | `Alt+Space`         | `Alt+Space`      |
-| Open / run                                                             | `Enter`          | `Enter`             | `Enter`          |
-| Web search                                                             | `Cmd+Enter`      | `Ctrl+Enter`        | `Ctrl+Enter`     |
-| Reveal in file manager                                                 | `Cmd+F` (Finder) | `Ctrl+F` (Explorer) | `Ctrl+F` (Files) |
-| Move to Trash (or empty the Trash folder)                              | `Cmd+D`          | n/a                 | n/a              |
-| Command mode (`calc`, `pomo`, `todo`, `speed`, `kill`, `shell`, `sys`) | `Cmd+/`          | `Ctrl+/`            | `Ctrl+/`         |
-| Settings                                                               | `Cmd+Shift+,`    | `Ctrl+Shift+,`      | `Ctrl+Shift+,`   |
-| Back / hide                                                            | `Escape`         | `Escape`            | `Escape`         |
-| Switch to running app N (home screen)                                  | `Cmd+1`..`Cmd+9` | `Alt+1`..`Alt+9`    | `Alt+1`..`Alt+9` |
-| Hide selected app from Look                                            | `Cmd+Shift+H`    | `Ctrl+Shift+H`      | `Ctrl+Shift+H`   |
-| Run selected app as admin                                              | n/a              | `Ctrl+Shift+Enter`  | n/a              |
-| Fire a super action (empty home screen)                                | `Cmd+<letter>`   | `Alt+<letter>`      | `Alt+<letter>`   |
+| Action                                                                 | Linux            |
+| ---------------------------------------------------------------------- | ---------------- |
+| Toggle launcher                                                        | `Alt+Space`      |
+| Open / run                                                             | `Enter`          |
+| Web search                                                             | `Ctrl+Enter`     |
+| Reveal in file manager                                                 | `Ctrl+F` (Files) |
+| Move to Trash (or empty the Trash folder)                              | n/a              |
+| Command mode (`calc`, `pomo`, `todo`, `speed`, `kill`, `shell`, `sys`) | `Ctrl+/`         |
+| Settings                                                               | `Ctrl+Shift+,`   |
+| Back / hide                                                            | `Escape`         |
+| Switch to running app N (home screen)                                  | `Alt+1`..`Alt+9` |
+| Hide selected app from Look                                            | `Ctrl+Shift+H`   |
+| Run selected app as admin                                              | n/a              |
+| Fire a super action (empty home screen)                                | `Alt+<letter>`   |
 
-(Throughout the rest of the docs, `Cmd+X` on macOS maps to `Ctrl+X` on Windows and Linux; the launcher-toggle hotkey uses `Alt+Space` on Windows/Linux instead of `Cmd+Space` because `Win+Space` / `Super+Space` are typically reserved by the OS or desktop environment.)
+(Throughout the rest of the docs, `Ctrl+X` is the standard modifier for shortcuts.)
 
 Full reference: [docs/user-guide.md](docs/user-guide.md).
 
@@ -283,7 +247,7 @@ Full reference: [docs/user-guide.md](docs/user-guide.md).
 
 Built-in: Catppuccin, Tokyo Night, Rose Pine, Gruvbox, Dracula, Kanagawa, Kindle, Liquid, plus Custom.
 Kindle is the one light preset - paper, ink, and a serif face.
-Liquid renders on macOS 26's Liquid Glass and is hidden on older releases; on Linux and Windows it ships as clear glass - same palette and geometry, a specular rim instead of refraction, plus real behind-window blur wherever the compositor grants it (KDE, Hyprland 0.56+, Niri).
+Liquid renders as clear glass - same palette and geometry, a specular rim instead of refraction, plus real behind-window blur wherever the compositor grants it (KDE, Hyprland 0.56+, Niri).
 Switch in `Settings > Appearance`.
 
 ## Documentation

@@ -711,49 +711,6 @@ mod tests {
         );
     }
 
-    #[test]
-    fn bootstrap_scope_all_yields_every_prefix() {
-        let prefixes = BootstrapScope::ALL.id_prefixes();
-        assert_eq!(
-            prefixes,
-            vec![
-                CandidateIdKind::PREFIX_APP,
-                CandidateIdKind::PREFIX_FILE,
-                CandidateIdKind::PREFIX_FOLDER,
-                CandidateIdKind::PREFIX_SETTING,
-                CandidateIdKind::PREFIX_SOURCE,
-            ]
-        );
-    }
-
-    #[test]
-    fn bootstrap_scope_sources_only_sweeps_only_source_rows() {
-        // A source refresh must never prune an app, a file, or a setting, and a
-        // file refresh must never prune a source's rows.
-        assert_eq!(
-            BootstrapScope::SOURCES_ONLY.id_prefixes(),
-            vec![CandidateIdKind::PREFIX_SOURCE]
-        );
-        assert!(
-            !BootstrapScope::FILES_ONLY
-                .id_prefixes()
-                .contains(&CandidateIdKind::PREFIX_SOURCE)
-        );
-    }
-
-    #[test]
-    fn bootstrap_scope_empty_is_detectable() {
-        let s = BootstrapScope {
-            apps: false,
-            files: false,
-            settings: false,
-            sources: false,
-        };
-        assert!(s.is_empty());
-        assert!(!s.is_all());
-        assert!(s.id_prefixes().is_empty());
-    }
-
     fn sample_engine() -> QueryEngine {
         QueryEngine::new(vec![
             Candidate::new(

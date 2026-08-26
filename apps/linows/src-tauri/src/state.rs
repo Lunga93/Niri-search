@@ -505,16 +505,6 @@ pub fn default_db_path() -> PathBuf {
         }
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        if let Ok(base) = env::var("LOCALAPPDATA") {
-            let trimmed = base.trim();
-            if !trimmed.is_empty() {
-                return PathBuf::from(trimmed).join(APP_DIR).join(DB_FILE);
-            }
-        }
-    }
-
     #[cfg(target_os = "linux")]
     {
         if let Ok(data_home) = env::var("XDG_DATA_HOME") {

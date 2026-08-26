@@ -9,7 +9,7 @@ Guide for building Look locally and contributing to the project.
 ├── apps/
 │   ├── macos/
 │   │   └── LauncherApp/          # Swift macOS app (Xcode project)
-│   └── linows/                   # Tauri v2 app, Linux + Windows
+│   └── linows/                   # Tauri v2 app, Linux
 │       ├── src-tauri/            #   Rust backend (commands, config, platform, etc.)
 │       ├── src/                  #   Frontend (vanilla HTML/CSS/JS, ES modules)
 │       └── flake.nix             #   NixOS dev shell
@@ -41,21 +41,20 @@ Guide for building Look locally and contributing to the project.
 
 Common:
 
-- Rust stable toolchain (for the core engine and FFI bridge)
-- GNU Make (top-level `Makefile` dispatches to `scripts/Makefile.mac` or `scripts/Makefile.win` based on host OS)
+- Rust stable toolchain (for the core engine)
+- GNU Make (top-level `Makefile` dispatches to `scripts/Makefile.mac`)
 
 macOS:
 
 - macOS 15.0+
 - Xcode (for the app shell)
 
-Windows / Linux (linows, the Tauri app):
+Linux (linows, the Tauri app):
 
 - Rust stable + `cargo-tauri` CLI (`cargo install tauri-cli --version "^2" --locked`)
-- Windows: Visual Studio 2022 Build Tools (Desktop C++ workload); WebView2 ships with Windows 11
 - Linux: distro WebKitGTK/GTK system libraries (or `nix develop` on NixOS)
 
-The per-distro package lists, the Windows `vcvars` setup and `LNK1104` notes, and all packaging/installer details are canonical in [apps/linows/BUILDING.md](apps/linows/BUILDING.md).
+The per-distro package lists and all packaging/installer details are canonical in [apps/linows/BUILDING.md](apps/linows/BUILDING.md).
 
 ## Building and running
 
@@ -75,9 +74,9 @@ cargo check
 cargo test
 ```
 
-Linows (Tauri) dev run: `cd apps/linows && cargo tauri dev` (release: `cargo tauri build`; on NixOS prefix with `nix develop -c`). Per-distro and Windows `vcvars` specifics are in [apps/linows/BUILDING.md](apps/linows/BUILDING.md).
+Linows (Tauri) dev run: `cd apps/linows && cargo tauri dev` (release: `cargo tauri build`; on NixOS prefix with `nix develop -c`). Per-distro specifics are in [apps/linows/BUILDING.md](apps/linows/BUILDING.md).
 
-Run the local dev app, macOS/Windows (from repo root):
+Run the local dev app, macOS (from repo root):
 
 ```bash
 make app-run
@@ -90,19 +89,13 @@ make app-run
 - launches with `LOOK_CONFIG_PATH=$HOME/.look/config.dev`
 - shows a red `TEST APP` badge so the dev run is visually distinct
 
-`make app-run` behavior (Windows):
-
-- stops any running `lookapp` process
-- runs `cargo tauri dev` for the linows app (`apps/linows/`) under the VS 2022 `vcvars` environment, with hot reload
-- `make app-run-release` builds the release bundle instead (`cargo tauri build`)
-
 Install a side-by-side test build (`Look Dev`) without replacing the normal install (macOS only):
 
 ```bash
 make app-run-dev
 ```
 
-`make app-run-dev` (macOS) builds a local Debug bundle, installs `/Applications/Look Dev.app` with bundle id `noah-code.Look.Dev`, leaves the Homebrew `/Applications/Look.app` untouched, then launches `Look Dev` with `LOOK_CONFIG_PATH=$HOME/.look/config.dev`. On Windows there is no separate dev install; use `make app-run` (hot reload) or `make app-run-release`.
+`make app-run-dev` (macOS) builds a local Debug bundle, installs `/Applications/Look Dev.app` with bundle id `noah-code.Look.Dev`, leaves the Homebrew `/Applications/Look.app` untouched, then launches `Look Dev` with `LOOK_CONFIG_PATH=$HOME/.look/config.dev`.
 
 Override the macOS dev config path:
 
@@ -110,7 +103,7 @@ Override the macOS dev config path:
 make app-run-dev DEV_CONFIG_PATH="$HOME/.look.qa.config"
 ```
 
-`make help` lists every target available on the current host (macOS or Windows).
+`make help` lists every target available on the current host.
 
 ## Benchmarks
 

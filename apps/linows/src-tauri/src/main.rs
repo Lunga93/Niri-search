@@ -325,19 +325,6 @@ fn setup_dev_env() {
         .trim()
         .is_empty()
     {
-        #[cfg(target_os = "windows")]
-        let db_dir = std::env::var("LOCALAPPDATA")
-            .ok()
-            .filter(|s| !s.trim().is_empty())
-            .map(std::path::PathBuf::from)
-            .unwrap_or_else(|| {
-                std::path::PathBuf::from(&home)
-                    .join("AppData")
-                    .join("Local")
-            })
-            .join("look");
-
-        #[cfg(not(target_os = "windows"))]
         let db_dir = std::env::var("XDG_DATA_HOME")
             .map(std::path::PathBuf::from)
             .unwrap_or_else(|_| std::path::PathBuf::from(&home).join(".local").join("share"))
@@ -666,19 +653,6 @@ fn main() {
             #[cfg(target_os = "linux")]
             if supports_transparency() {
                 commands::show_launcher(&window);
-            }
-            #[cfg(target_os = "windows")]
-            {
-                // WebView2 defaults to an opaque background. With the window
-                // marked `transparent: true`, the WebView still paints opaque
-                // pixels in the corner triangles. Forcing the default bg to
-                // (0,0,0,0) lets the CSS-clipped rounded silhouette show.
-                //
-                // No DWM corner call here - `DWMWA_WINDOW_CORNER_PREFERENCE`
-                // is a verified no-op on `transparent: true` windows
-                // (per-pixel-alpha bypasses DWM compositing). Corners come
-                // from `border-radius` on `.launcher-window` in `layout.css`.
-                let _ = window.set_background_color(Some(tauri::window::Color(0, 0, 0, 0)));
             }
 
             Ok(())

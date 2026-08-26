@@ -1,17 +1,11 @@
 use crate::config::RuntimeConfig;
 use crate::index::{FILE_CANDIDATE_ID_PREFIX, FOLDER_CANDIDATE_ID_PREFIX};
-use crate::platform::paths::{
-    PathPolicy, candidate_id_path_component, compile_ignore_glob, path_is_same_or_child,
-};
+use crate::platform::paths::{candidate_id_path_component, compile_ignore_glob, path_is_same_or_child};
 use globset::{GlobSet, GlobSetBuilder};
 use ignore::WalkBuilder;
 use look_indexing::{Candidate, CandidateKind};
 use std::sync::mpsc;
 use std::time::UNIX_EPOCH;
-
-// One `GlobSet` per path policy: a candidate is normalized once per distinct
-// policy and matched against all patterns of that policy in a single pass.
-type IgnoredFileMatchers = Vec<(PathPolicy, GlobSet)>;
 
 fn modified_unix_s(metadata: Option<&std::fs::Metadata>) -> Option<i64> {
     metadata?
@@ -43,7 +37,7 @@ pub fn discover_local_files_and_folders(config: &RuntimeConfig, tx: mpsc::SyncSe
 fn walk_files(
     path: &str,
     config: &RuntimeConfig,
-    ignored_file_matchers: &IgnoredFileMatchers,
+    ignored_file_matchers: &GlobSet,
     tx: &mpsc::SyncSender<Candidate>,
     file_count: &mut usize,
 ) {
@@ -84,10 +78,7 @@ fn walk_files(
                 return false;
             }
 
-            // Name-based skip applies to anything (dir, file, junction).
-            // walkdir's `file_type` doesn't follow Windows reparse points, so
-            // gating on `is_dir()` here lets `Documents\My Music` (a junction
-            // to `~\Music`) leak through and become a duplicate folder result.
+            // Name-based skip applies to anything (dir, file).
             if name.ends_with(".app") || should_skip_dir(name, &skip_dir_names) {
                 return false;
             }
@@ -133,13 +124,7 @@ fn walk_files(
         }
 
         if metadata.is_file() {
-            // Normalize the candidate with the same policy used for the
-            // pattern. Without this, a Windows pattern like `C:\tmp\*.log`
-            // becomes lowercase `c:/...`, while walker output like
-            // `C:/tmp/debug.log` can keep its original case and miss the glob.
-            if ignored_file_matchers.iter().any(|(policy, glob_set)| {
-                glob_set.is_match(&*policy.normalize_for_matching(path_str))
-            }) {
+            if ignored_file_matchers.is_match(path_str) {
                 continue;
             }
 
@@ -156,27 +141,15 @@ fn walk_files(
     }
 }
 
-fn build_ignored_matchers(patterns: &[String]) -> IgnoredFileMatchers {
-    let mut groups: Vec<(PathPolicy, GlobSetBuilder)> = Vec::new();
-    for (policy, glob) in patterns
+fn build_ignored_matchers(patterns: &[String]) -> GlobSet {
+    let mut builder = GlobSetBuilder::new();
+    for glob in patterns
         .iter()
         .filter_map(|pattern| compile_ignore_glob(pattern))
     {
-        match groups.iter_mut().find(|(existing, _)| *existing == policy) {
-            Some((_, builder)) => {
-                builder.add(glob);
-            }
-            None => {
-                let mut builder = GlobSetBuilder::new();
-                builder.add(glob);
-                groups.push((policy, builder));
-            }
-        }
+        builder.add(glob);
     }
-    groups
-        .into_iter()
-        .filter_map(|(policy, builder)| builder.build().ok().map(|set| (policy, set)))
-        .collect()
+    builder.build().unwrap_or_default()
 }
 
 fn should_skip_dir(name: &str, skip_dir_names: &[String]) -> bool {
@@ -211,14 +184,6 @@ mod tests {
                 .expect("system time should be after epoch")
                 .as_nanos()
         ))
-    }
-
-    fn windows_style_ignored_pattern_matches(pattern: &str, path: &str) -> bool {
-        let Some((policy, matcher)) = compile_ignore_matcher(pattern) else {
-            return false;
-        };
-        let normalized_path = policy.normalize_for_matching(path);
-        matcher.is_match(&*normalized_path)
     }
 
     #[test]
@@ -258,16 +223,6 @@ mod tests {
     fn path_prefix_is_boundary_aware() {
         let excludes = vec!["/Users/demo/Down".to_string()];
         assert!(!should_exclude_path("/Users/demo/Downloads", &excludes));
-    }
-
-    #[test]
-    #[cfg(target_os = "windows")]
-    fn exclude_path_matching_supports_windows_style_separators() {
-        let excludes = vec!["C:\\Users\\demo\\Downloads".to_string()];
-        assert!(should_exclude_path(
-            "C:/Users/demo/Downloads/cache/a.txt",
-            &excludes
-        ));
     }
 
     #[test]
@@ -385,27 +340,11 @@ mod tests {
     }
 
     #[test]
-    fn ignored_patterns_windows_style_paths_match_consistently() {
-        // Case:
-        // - pattern = C:\Users\me\AppData\Local\Temp\**\*.etl
-        // - path = C:/Users/me/AppData/Local/Temp/nested/trace.etl
-        // - unrelated = C:/Users/me/AppData/Local/Temp/nested/trace.log
-        assert!(windows_style_ignored_pattern_matches(
-            r"C:\Users\me\AppData\Local\Temp\**\*.etl",
-            "C:/Users/me/AppData/Local/Temp/nested/trace.etl"
-        ));
-        assert!(!windows_style_ignored_pattern_matches(
-            r"C:\Users\me\AppData\Local\Temp\**\*.etl",
-            "C:/Users/me/AppData/Local/Temp/nested/trace.log"
-        ));
-    }
+    fn ignored_patterns_match_posix_paths() {
+        let pattern = "/home/user/Temp/*.log";
+        let matcher = compile_ignore_matcher(pattern).expect("pattern should compile");
 
-    #[test]
-    fn ignored_patterns_match_windows_backslash_pattern_against_slash_candidate() {
-        let pattern = r"C:\Users\me\Temp\*.log";
-        let (policy, matcher) = compile_ignore_matcher(pattern).expect("pattern should compile");
-
-        assert!(matcher.is_match(&*policy.normalize_for_matching("C:/Users/me/Temp/debug.log")));
-        assert!(!matcher.is_match(&*policy.normalize_for_matching("C:/Users/me/Temp/debug.txt")));
+        assert!(matcher.is_match("/home/user/Temp/debug.log"));
+        assert!(!matcher.is_match("/home/user/Temp/debug.txt"));
     }
 }

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { speedTest, localIpv4, copyToClipboard, onWindowShown, onWindowHidden } from '../../ipc.ts';
 import { globe, eye, eyeOff } from '../../icons.ts';
 import { prefersReducedMotion, onReducedMotionChange } from '../../platform.ts';

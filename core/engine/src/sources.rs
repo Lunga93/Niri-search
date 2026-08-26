@@ -619,9 +619,6 @@ fn home_dir() -> Option<PathBuf> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    #[cfg(windows)]
-    use look_tools::cmd_quote as quote;
-    #[cfg(not(windows))]
     use look_tools::shell_quote as quote;
 
     #[test]

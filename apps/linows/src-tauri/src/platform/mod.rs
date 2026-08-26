@@ -1,14 +1,10 @@
 //! Platform-specific code.
 //!
 //! Cross-platform Tauri commands and types stay here. Per-OS implementations
-//! live under `platform/{linux,windows}/`. `platform/shared.rs` holds helpers
-//! reused across platforms.
+//! live under `platform/linux/`. `platform/shared.rs` holds helpers reused
+//! across platforms.
 
-#[cfg(target_os = "linux")]
 pub mod linux;
-
-#[cfg(target_os = "windows")]
-pub mod windows;
 
 pub mod shared;
 
@@ -68,23 +64,12 @@ pub fn get_icon(
     IconResult { data_url }
 }
 
-#[cfg(target_os = "linux")]
 fn resolve_icon(kind: &str, path: &str, id: Option<&str>) -> Option<String> {
     match kind {
         "app" => linux::icons::resolve_app_icon(path, id),
         "folder" => linux::icons::resolve_themed_icon("folder"),
         _ => linux::icons::resolve_file_icon(path),
     }
-}
-
-#[cfg(target_os = "windows")]
-fn resolve_icon(kind: &str, path: &str, _id: Option<&str>) -> Option<String> {
-    windows::icons::resolve(kind, path)
-}
-
-#[cfg(not(any(target_os = "linux", target_os = "windows")))]
-fn resolve_icon(_kind: &str, _path: &str, _id: Option<&str>) -> Option<String> {
-    None
 }
 
 /// One blurred rectangle in window-local logical pixels. The frontend sends
@@ -123,32 +108,10 @@ pub struct PlatformInfo {
 #[tauri::command]
 pub fn get_platform() -> PlatformInfo {
     let os = std::env::consts::OS.to_string();
-
-    #[cfg(target_os = "linux")]
     let has_compositor = linux::transparency::has_compositor();
-
-    #[cfg(not(target_os = "linux"))]
-    let has_compositor = true;
-
-    #[cfg(target_os = "linux")]
     let compositor = linux::wm::detect_compositor();
-
-    #[cfg(not(target_os = "linux"))]
-    let compositor: Option<String> = None;
-
-    #[cfg(target_os = "linux")]
     let virtual_gpu = linux::gpu::virtual_gpu_detected();
-
-    #[cfg(not(target_os = "linux"))]
-    let virtual_gpu = false;
-
-    #[cfg(target_os = "linux")]
     let compositor_blur = linux::blur::is_supported();
-
-    // Windows could via DWM acrylic, but it cannot round a per-pixel-alpha
-    // window - that trades the rounded silhouette for frost.
-    #[cfg(not(target_os = "linux"))]
-    let compositor_blur = false;
 
     PlatformInfo {
         os,
@@ -159,7 +122,7 @@ pub fn get_platform() -> PlatformInfo {
     }
 }
 
-// --- Drive enumeration (Windows-only payload; stub elsewhere) ---
+// --- Drive enumeration (no-op on Linux) ---
 
 #[derive(Serialize)]
 pub struct CandidateDrive {
@@ -169,34 +132,13 @@ pub struct CandidateDrive {
 
 #[tauri::command]
 pub fn list_candidate_drives() -> Vec<CandidateDrive> {
-    #[cfg(target_os = "windows")]
-    {
-        windows::drives::enumerate_candidates()
-            .into_iter()
-            .map(|d| CandidateDrive {
-                letter: d.letter,
-                root: d.root,
-            })
-            .collect()
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        Vec::new()
-    }
+    Vec::new()
 }
 
-// --- Window effects (Tauri command; dispatches per OS) ---
+// --- Window effects (no-op on Linux) ---
 
 #[tauri::command]
 pub fn set_window_effect(window: tauri::Window, effect: String) -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    {
-        windows::effects::apply(window, &effect)
-    }
-
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = (window, effect);
-        Ok(())
-    }
+    let _ = (window, effect);
+    Ok(())
 }

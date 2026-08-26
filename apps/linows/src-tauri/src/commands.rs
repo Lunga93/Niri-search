@@ -117,48 +117,9 @@ pub fn open_path(
     window: tauri::WebviewWindow,
     path: String,
     kind: Option<String>,
-    #[cfg_attr(not(target_os = "linux"), allow(unused_variables))] id: Option<String>,
+    id: Option<String>,
 ) -> Result<(), String> {
-    // Windows classic applets: look-cmd://program[?args].
-    // - `program` alone (e.g. "devmgmt.msc", "appwiz.cpl", "regedit.exe") →
-    //   open::that → ShellExecuteW, which does file-association lookup. This is
-    //   required for .msc / .cpl because CreateProcessW (what Command::new
-    //   uses) won't launch non-executable data files directly.
-    // - `program?args` (e.g. rundll32.exe with a DLL+entry) → Command::new,
-    //   because ShellExecute can't argv-parse a rundll32 command line.
-    #[cfg(target_os = "windows")]
-    if let Some(rest) = path.strip_prefix("look-cmd://") {
-        hide_armed(&window);
-        match rest.split_once('?') {
-            Some((program, args)) => {
-                let program = program.to_string();
-                let args = args.to_string();
-                std::thread::spawn(move || {
-                    if let Err(e) = std::process::Command::new(&program)
-                        .arg(&args)
-                        .stdin(std::process::Stdio::null())
-                        .stdout(std::process::Stdio::null())
-                        .stderr(std::process::Stdio::null())
-                        .spawn()
-                    {
-                        eprintln!("[open_path] look-cmd spawn {program:?} failed: {e}");
-                    }
-                });
-            }
-            None => {
-                let program = rest.to_string();
-                std::thread::spawn(move || {
-                    if let Err(e) = open::that(&program) {
-                        eprintln!("[open_path] look-cmd open {program:?} failed: {e}");
-                    }
-                });
-            }
-        }
-        return Ok(());
-    }
-
     // Linux system settings: settings://panel → gnome-control-center panel
-    #[cfg(target_os = "linux")]
     if let Some(panel) = path.strip_prefix("settings://") {
         hide_armed(&window);
         let panel = panel.to_string();
@@ -198,7 +159,6 @@ pub fn open_path(
         return Ok(());
     }
 
-    #[cfg(target_os = "linux")]
     {
         // An "app" path is a URL only when its FIRST token carries the scheme
         // (e.g. `https://example.com`). Desktop Exec strings like
@@ -222,74 +182,37 @@ pub fn open_path(
     if kind.as_deref() == Some("browser") {
         hide_armed(&window);
         std::thread::spawn(move || {
-            // Not open::that on Linux: it spawns xdg-open with the inherited
-            // env that host_command exists to scrub.
-            #[cfg(target_os = "linux")]
-            {
-                let _ = host_command("xdg-open")
-                    .arg(&path)
-                    .stdin(std::process::Stdio::null())
-                    .stdout(std::process::Stdio::null())
-                    .stderr(std::process::Stdio::null())
-                    .spawn();
-                // Give the browser a beat to receive the URL and surface its
-                // new tab; the focus attempt below races the spawn otherwise.
-                std::thread::sleep(std::time::Duration::from_millis(
-                    crate::consts::HANDLER_FOCUS_DELAY_MS,
-                ));
-                focus_default_browser();
-            }
-            #[cfg(not(target_os = "linux"))]
-            let _ = open::that(&path);
+            let _ = host_command("xdg-open")
+                .arg(&path)
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn();
+            // Give the browser a beat to receive the URL and surface its
+            // new tab; the focus attempt below races the spawn otherwise.
+            std::thread::sleep(std::time::Duration::from_millis(
+                crate::consts::HANDLER_FOCUS_DELAY_MS,
+            ));
+            focus_default_browser();
         });
         Ok(())
     } else {
-        // Windows: before launching a fresh instance, try to raise an existing
-        // window for the same .exe / .lnk / UWP AUMID. Must run while Look
-        // still holds foreground - SetForegroundWindow fails after hide().
-        #[cfg(target_os = "windows")]
-        if kind.as_deref() == Some("app")
-            && crate::platform::windows::window_focus::try_focus_existing(&path)
-        {
-            hide_armed(&window);
-            return Ok(());
-        }
-
-        // Shell namespace locations (e.g. `shell:RecycleBinFolder`) aren't
-        // filesystem paths - ShellExecute can't always resolve them, but
-        // Explorer opens them directly.
-        #[cfg(target_os = "windows")]
-        if path.starts_with("shell:") {
-            hide_armed(&window);
-            let _ = std::process::Command::new("explorer.exe")
-                .arg(&path)
-                .spawn();
-            return Ok(());
-        }
-
         hide_armed(&window);
         std::thread::spawn(move || {
-            #[cfg(target_os = "linux")]
-            {
-                let _ = host_command("xdg-open")
-                    .arg(&path)
-                    .stdin(std::process::Stdio::null())
-                    .stdout(std::process::Stdio::null())
-                    .stderr(std::process::Stdio::null())
-                    .spawn();
-                // Same focus dance as the browser branch - Sway/i3 don't raise
-                // the handler on xdg-open activation. Resolves the handler via
-                // the file's MIME type so a PNG opened in Brave focuses Brave,
-                // a PDF opened in Zathura focuses Zathura, etc.
-                std::thread::sleep(std::time::Duration::from_millis(
-                    crate::consts::HANDLER_FOCUS_DELAY_MS,
-                ));
-                focus_file_handler(&path);
-            }
-            #[cfg(not(target_os = "linux"))]
-            {
-                let _ = open::that(&path);
-            }
+            let _ = host_command("xdg-open")
+                .arg(&path)
+                .stdin(std::process::Stdio::null())
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .spawn();
+            // Same focus dance as the browser branch - Sway/i3 don't raise
+            // the handler on xdg-open activation. Resolves the handler via
+            // the file's MIME type so a PNG opened in Brave focuses Brave,
+            // a PDF opened in Zathura focuses Zathura, etc.
+            std::thread::sleep(std::time::Duration::from_millis(
+                crate::consts::HANDLER_FOCUS_DELAY_MS,
+            ));
+            focus_file_handler(&path);
         });
         Ok(())
     }
@@ -300,31 +223,10 @@ pub fn open_path(
 /// confirmed, so usage is never recorded for a declined prompt.
 #[tauri::command]
 pub async fn open_elevated(
-    window: tauri::WebviewWindow,
-    #[cfg_attr(not(target_os = "windows"), allow(unused_variables))] path: String,
+    _window: tauri::WebviewWindow,
+    _path: String,
 ) -> Result<(), String> {
-    #[cfg(target_os = "windows")]
-    {
-        hide_armed(&window);
-        let result = tauri::async_runtime::spawn_blocking(move || {
-            let (program, args) = crate::platform::windows::launch::split_target(&path);
-            crate::platform::windows::launch::run_as_admin(program, args)
-        })
-        .await
-        .unwrap_or_else(|e| Err(e.to_string()));
-        if let Err(e) = &result {
-            // Declined, refused, or the task died: don't leave Look hidden.
-            eprintln!("[open_elevated] {e}");
-            show_launcher(&window);
-            focus_launcher(&window);
-        }
-        result
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = window;
-        Err("elevated launch is Windows only".into())
-    }
+    Err("elevated launch is not supported on this platform".into())
 }
 
 /// Ctrl+F. The same reveal the `reveal` tool action falls back to when no
@@ -332,16 +234,7 @@ pub async fn open_elevated(
 /// one of them merely opening its folder.
 #[tauri::command]
 pub fn reveal_path(path: String) -> Result<(), String> {
-    #[cfg(target_os = "linux")]
     let outcome = crate::platform::linux::tools::reveal(&path);
-    #[cfg(target_os = "windows")]
-    let outcome = crate::platform::windows::tools::reveal(&path);
-
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    let outcome: Result<(), String> = {
-        let _ = path;
-        Err("reveal is not supported on this platform".to_string())
-    };
 
     outcome.map_err(|e| format!("Failed to reveal: {e}"))
 }
@@ -500,10 +393,8 @@ pub fn hide_window(window: tauri::WebviewWindow) {
 /// wherever the compositor has no such request (see platform::blur).
 #[tauri::command]
 pub fn set_blur_region(
-    #[cfg_attr(not(target_os = "linux"), allow(unused_variables))] window: tauri::WebviewWindow,
-    #[cfg_attr(not(target_os = "linux"), allow(unused_variables))] rects: Vec<
-        crate::platform::BlurRect,
-    >,
+    window: tauri::WebviewWindow,
+    rects: Vec<crate::platform::BlurRect>,
 ) {
     #[cfg(target_os = "linux")]
     if let Some(wid) = crate::platform::linux::window_focus::self_window() {

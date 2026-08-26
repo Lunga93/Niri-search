@@ -68,6 +68,15 @@ fn dbus_caller() -> Option<&'static DbusCaller> {
 fn caller_invocation(name: &str, path: &std::path::Path) -> String {
     let path = path.to_string_lossy();
     if path.starts_with(NIX_STORE_PREFIX) {
+        // After a NixOS rebuild the old store path is garbage-collected.
+        // `/run/current-system/sw/bin/` points at the active generation and
+        // survives rebuilds — prefer it when the binary exists there.
+        let sw_path = std::path::PathBuf::from(format!(
+            "/run/current-system/sw/bin/{name}"
+        ));
+        if sw_path.exists() {
+            return sw_path.to_string_lossy().into_owned();
+        }
         path.into_owned()
     } else {
         name.to_string()
@@ -208,7 +217,32 @@ where
                 });
             }
 
-            if let Err(e) = run_dbus_service(move || on_toggle()).await {
+            // Retry D-Bus service name claim — the session bus may not be
+            // ready when Look starts (e.g. systemd autostart races with
+            // dbus-broker). Give up after a few attempts.
+            const MAX_RETRIES: u32 = 5;
+            let mut last_err = None;
+            for attempt in 0..MAX_RETRIES {
+                match run_dbus_service(move || on_toggle()).await {
+                    Ok(()) => break,
+                    Err(e) => {
+                        if attempt + 1 < MAX_RETRIES {
+                            eprintln!(
+                                "[look] D-Bus service attempt {} failed: {e}, retrying in {}ms",
+                                attempt + 1,
+                                500 * (attempt + 1)
+                            );
+                            tokio::time::sleep(std::time::Duration::from_millis(
+                                500 * (attempt + 1) as u64,
+                            ))
+                            .await;
+                        }
+                        last_err = Some(e);
+                    }
+                }
+            }
+
+            if let Some(e) = last_err {
                 if compositor == Compositor::Kde {
                     // The KDE task toggles via the kglobalaccel signal alone;
                     // keep it alive.
@@ -221,9 +255,9 @@ where
                         health::ISSUE_HOTKEY,
                         "dbus-service",
                         format!(
-                            "Look's D-Bus service failed to start ({e}), so the \
-                             Alt+Space binding cannot reach the app. Restart Look \
-                             to retry."
+                            "Look's D-Bus service failed to start after {MAX_RETRIES} \
+                             attempts ({e}), so the Alt+Space binding cannot reach the \
+                             app. Restart Look to retry."
                         ),
                     );
                 }

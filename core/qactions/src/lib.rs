@@ -288,16 +288,6 @@ fn binding_for(result_id: &str, _kind: &str) -> Option<&'static str> {
     }
 }
 
-#[cfg(target_os = "windows")]
-fn binding_for(result_id: &str, _kind: &str) -> Option<&'static str> {
-    // Ids come from core/engine/src/platform/windows/settings_catalog.rs
-    // (candidate_id_suffix, prefixed with `setting:`).
-    match result_id {
-        "setting:windows.devices.bluetooth" => Some("bluetooth"),
-        _ => None,
-    }
-}
-
 #[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
 fn binding_for(_result_id: &str, _kind: &str) -> Option<&'static str> {
     None
@@ -412,16 +402,6 @@ mod tests {
         assert_eq!(found[0].action_id, "bluetooth");
         // A non-actionable result yields nothing.
         assert!(descriptors_for("setting:sound", "app").is_empty());
-    }
-
-    #[cfg(target_os = "windows")]
-    #[test]
-    fn windows_bluetooth_setting_resolves_to_the_toggle() {
-        let found = descriptors_for("setting:windows.devices.bluetooth", "app");
-        assert_eq!(found.len(), 1);
-        assert_eq!(found[0].action_id, "bluetooth");
-        // A non-actionable result yields nothing.
-        assert!(descriptors_for("setting:windows.devices.wifi", "app").is_empty());
     }
 
     #[cfg(target_os = "macos")]

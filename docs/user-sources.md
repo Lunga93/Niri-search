@@ -8,7 +8,7 @@ No plugin to install, no API to learn. One directory, one file format, four keys
 
 > **Needs Look v0.6.12 or newer.** Earlier builds do not read `~/.look/sources/`, so nothing in this guide applies to them. 0.6.12 is not released yet: build from `main` ([DEVELOPMENT.md](../DEVELOPMENT.md)) to use sources today.
 
-> **Platform note.** Sources work identically on macOS, Linux, and Windows: same directory, same format, same parser. Only two things differ. Shortcuts are written here with macOS modifiers, so read `Cmd` as `Ctrl` on Linux and Windows. And the example commands are macOS ones, so `open -a Slack` becomes whatever launches Slack on your system, and `open {path}` becomes `xdg-open {path}` on Linux or `start "" {path}` on Windows. Steps run through `cmd` on Windows and a POSIX shell everywhere else, and placeholders are escaped for whichever shell will actually read them.
+> **Platform note.** Sources work identically on macOS, Linux, and Windows: same directory, same format, same parser. Shortcuts are written here with macOS modifiers, so read `Cmd` as `Ctrl` on Linux and Windows. And the example commands are macOS ones, so `open -a Slack` becomes whatever launches Slack on your system, and `open {path}` becomes `xdg-open {path}` on Linux.
 
 - [Start here](#start-here)
 - [How a file is organised](#how-a-file-is-organised)
@@ -228,7 +228,7 @@ If the command fails, times out, or prints nothing, **the rows it produced last 
 | `timeout` | duration string | `run` | `30s`, `5m`, `1h`, `2d`. Default 5s, capped at 30s |
 | `format` | `lines` \| `json` | `file`, `run` | Default `lines` |
 
-A leading `~` in any path key (`dir`, `dirs`, `file`, `cwd`, `icon`, and a JSON row's `path`) is your home directory, on every platform: Look resolves those itself. A `~` anywhere else in the value is left alone, because it is a legal character in a filename. Inside a **command** it is your shell's job instead, which matters on Windows: see [Point a block at your own script](#point-a-block-at-your-own-script).
+A leading `~` in any path key (`dir`, `dirs`, `file`, `cwd`, `icon`, and a JSON row's `path`) is your home directory, on every platform: Look resolves those itself. A `~` anywhere else in the value is left alone, because it is a legal character in a filename.
 
 Keys Look does not recognise are reported and ignored, never fatal: a file written for a newer version still loads on an older one.
 
@@ -264,7 +264,7 @@ Four verbs have one key each across the whole app, so the same chord means the s
 | `open` | `Enter` | The main action |
 | `edit` | `Cmd+E` / `Ctrl+E` | Open in your editor |
 | `terminal` | `Cmd+T` / `Ctrl+T` | Open a terminal there |
-| `reveal` | `Cmd+F` / `Ctrl+F` | Show in Finder / Explorer / Files |
+| `reveal` | `Cmd+F` / `Ctrl+F` | Show in Finder / Files |
 
 Declare only what differs from your global preferred tools in `~/.look/config`:
 
@@ -386,15 +386,13 @@ chmod +x ~/.look/sources/repos
 
 Look treats it as a `run` block whose id and name are the file name, and everything else is a default. This is the fastest way to try an idea: if it later needs a `then`, an `open`, or a `preview`, add a `.toml` block that names the script in `run`.
 
-On Windows the executable bit does not exist, so the extension decides: `.exe`, `.cmd`, `.bat`, `.com`, and `.ps1` count, and a `.ps1` is run through PowerShell for you.
-
 Files that are neither executable nor `.toml` are ignored, and Look says why rather than staying silent about them.
 
 ## Your shell, and your shell config
 
 Every command a block declares is **shell text**, run by your own shell. Not a bare `execve` with an argument list: `&&`, `|`, `>`, `$VAR`, and globs all mean what they mean in a terminal.
 
-On Unix that is `$SHELL -lc "<your command>"`, a **login** shell. That matters more than it sounds. A launcher is started by the window server, not from a terminal, so it inherits a nearly empty environment: no `$EDITOR`, no `$TERMINAL`, and a `PATH` with no Homebrew, no nvm, no `~/.local/bin`. Without the login flag, a command that works when you paste it into a terminal would fail here with a "command not found" you could not explain. On Windows the equivalent is `cmd /D /S /C`.
+On Unix that is `$SHELL -lc "<your command>"`, a **login** shell. That matters more than it sounds. A launcher is started by the window server, not from a terminal, so it inherits a nearly empty environment: no `$EDITOR`, no `$TERMINAL`, and a `PATH` with no Homebrew, no nvm, no `~/.local/bin`. Without the login flag, a command that works when you paste it into a terminal would fail here with a "command not found" you could not explain.
 
 ### Which of your shell files actually get read
 
@@ -438,7 +436,7 @@ name = "Deploy"                     # because it names {path}
 do   = ["~/bin/deploy.sh {path} --confirm"]
 ```
 
-The `~` in those commands is expanded by your shell, the same as in a terminal. **On Windows it is not**: `cmd` has no tilde expansion, so write `%USERPROFILE%\bin\look-repos` there. The path keys are different, and take `~` on every platform, because Look resolves those itself before the OS sees them.
+The `~` in those commands is expanded by your shell, the same as in a terminal. The path keys are different, and take `~` on every platform, because Look resolves those itself before the OS sees them.
 
 Your script can be in any language with a shebang, and it can read the row from its environment instead of taking arguments, which is often tidier:
 
@@ -463,7 +461,7 @@ If the script needs no options at all, you do not even need the TOML: [drop it s
 | --- | --- |
 | A `do` step, and a verb | The selected row's folder, meaning its parent when the row is a file. A row with no path (a bundle, a `file` row) leaves it at Look's own working directory, so do not rely on it |
 | `preview` | The selected row's folder |
-| A `run` block's producer | Its `cwd` if it declares one, otherwise the filesystem root (`/`, or `%SystemDrive%\` on Windows) |
+| A `run` block's producer | Its `cwd` if it declares one, otherwise the filesystem root (`/`) |
 
 That last row is the one to watch: a `run` block with no `cwd` does **not** start in your home directory, so any relative path in it is resolved against `/`. Use absolute paths, or `-C`-style flags, or declare `cwd`.
 

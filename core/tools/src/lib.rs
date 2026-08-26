@@ -7,7 +7,6 @@
 
 mod catalog;
 mod compose;
-mod windows_terminals;
 mod quote;
 mod resolved;
 
@@ -16,8 +15,7 @@ pub use catalog::{
     TTY_TOOLS, Terminal, command_style, entry, surface,
 };
 pub use compose::{Action, Launch, Target, Unavailable, edit, reveal, terminal_here};
-pub use quote::{applescript_quote, cmd_quote, shell_quote};
-pub use windows_terminals::{WINDOWS_TERMINALS, WindowsTerminal};
+pub use quote::{applescript_quote, shell_quote};
 
 pub use resolved::{
     KIND_APPLICATION, KIND_ARGV, KIND_FAILED, KIND_PERFORMED, KIND_SHELL, KIND_SYSTEM_DEFAULT,

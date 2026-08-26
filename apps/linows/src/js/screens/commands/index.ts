@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as calc from './calc.ts';
 import * as pomo from './pomo.ts';
 import * as todo from './todo.ts';

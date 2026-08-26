@@ -1,13 +1,12 @@
 # Building & Packaging: linows
 
-Build instructions for the Look desktop app (Linux + Windows target via Tauri v2).
+Build instructions for the Look desktop app (Linux via Tauri v2).
 
 ## Architecture support
 
-**Released builds target x86_64 (x64) only** on both Linux and Windows.
+**Released builds target x86_64 (x64) only** on Linux.
 
-- ARM64 builds aren't shipped. Windows on ARM (Surface Pro X, Snapdragon X laptops) is still <2% of the install base; users there can run the x64 build under Windows' x64 emulation with a small perf hit. Linux on ARM is rarely a desktop target.
-- The workspace `.cargo/config.toml` already declares `+crt-static` for both `x86_64-pc-windows-msvc` and `aarch64-pc-windows-msvc`, so adding an ARM matrix to the release workflow later is mechanical (rustup target + `cargo tauri build --target`).
+- ARM64 builds aren't shipped. Linux on ARM is rarely a desktop target.
 - If you have a real ARM machine and want native builds, please open an issue; the project will add an ARM track when there's demand.
 
 ---
@@ -161,48 +160,6 @@ Upgrading from a Look that kept its config at `~/.look.config`: activation
 merges into whichever file Look reads, the old one until Look copies it into
 `~/.look/` on its next launch, which carries the managed keys across. Nothing
 needs doing by hand, and the old file is left where it is.
-
-### Windows
-
-**Prerequisites:**
-
-- Rust stable + cargo-tauri (as above)
-- **Visual Studio 2022 Build Tools** (Desktop development with C++ workload, provides both `link.exe` and the Windows SDK)
-- WebView2 runtime (ships with Windows 11; for older Win10 the NSIS installer fetches it automatically via the embedded bootstrapper)
-
-**Why VS 2022 Build Tools specifically:** the MSVC linker needs both `link.exe` *and* the Windows SDK. VS 2026 Community ships `link.exe` but no SDK by default, and without it `cargo build` fails with `LNK1104: cannot open file 'msvcrt.lib'`. Same applies to `cargo install tauri-cli`.
-
-**Running cargo under vcvars:** every cargo invocation must run inside a `vcvarsall.bat x64` shell so the linker can find the SDK. The repo provides a wrapper:
-
-```cmd
-scripts\windows\with-vcvars.bat cargo tauri dev
-scripts\windows\with-vcvars.bat cargo tauri build
-```
-
-The Makefile dispatches to `scripts/Makefile.win` on Windows and wraps every target in the vcvars environment:
-
-```bash
-make app-run            # cargo tauri dev (hot reload)
-make app-run-release    # cargo tauri build (release bundle)
-make app-build          # cargo build (debug)
-make app-build-release  # cargo build (release)
-```
-
-Format and lint are not Make targets; run them directly under vcvars:
-
-```bash
-scripts\windows\with-vcvars.bat cargo fmt --manifest-path apps\linows\src-tauri\Cargo.toml -- --check
-scripts\windows\with-vcvars.bat cargo clippy --manifest-path apps\linows\src-tauri\Cargo.toml -- -D warnings
-```
-
-**Dev paths:** in dev mode, Look writes to `%LOCALAPPDATA%\look\look.dev.db` and `%USERPROFILE%\.look\config.dev`. Production builds use `%LOCALAPPDATA%\look\` for both.
-
-**Hot reload caveats:**
-
-- Tauri dev watches `apps/linows/src-tauri/` only. Changes under `core/engine/` need a touch of any `src-tauri/` file to trigger rebuild.
-- Frontend HTML/CSS/JS changes need a manual `Ctrl+R` in the webview; no HMR (`beforeDevCommand` is intentionally empty since `frontendDist` is static).
-
-**Installer output:** `apps\linows\src-tauri\target\release\bundle\nsis\Look_<version>_x64-setup.exe`. The MSVC C runtime is static-linked via the workspace-root `.cargo/config.toml`, so the installer runs on a clean Windows 10/11 install without the VC++ redistributable.
 
 ---
 

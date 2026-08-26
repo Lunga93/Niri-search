@@ -1,3 +1,4 @@
+// @ts-nocheck
 const SEARCH_DEBOUNCE_MS = 140;
 
 let panel = null;

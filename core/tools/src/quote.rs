@@ -5,16 +5,6 @@ pub fn shell_quote(value: &str) -> String {
     format!("'{}'", value.replace('\'', "'\\''"))
 }
 
-/// `cmd.exe` quoting: wrap in double quotes, double any inside.
-///
-/// Quoted state is what makes `&`, `|`, `>` and `^` inert, and a doubled quote
-/// leaves and re-enters it in one step, so no value can end the argument or
-/// start a command of its own. `%NAME%` still expands: the command line has no
-/// escape for it, and that is the one thing quoting cannot make literal.
-pub fn cmd_quote(value: &str) -> String {
-    format!("\"{}\"", value.replace('"', "\"\""))
-}
-
 pub fn applescript_quote(value: &str) -> String {
     // Backslash first, or the quotes escaped next would have theirs doubled.
     format!("\"{}\"", value.replace('\\', "\\\\").replace('"', "\\\""))

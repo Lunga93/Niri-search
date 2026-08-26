@@ -18,7 +18,7 @@ This document tracks what `look` supports today and what is planned next.
 - scoped query prefixes: `a"`, `f"`, `d"`, `r"`, and `rc"` (recent files/folders, newest first - blends opened-through-Look with recently added/changed on disk; macOS for now)
 - path-fragment friendly matching (slash-biased queries)
 - URL-like queries (no prefix): typing a URL offers an **Open in browser** row (structural URLs rank first, a bare `host.tld` after local results); opened URLs return as frecency-ranked **Recently opened** rows
-- arithmetic queries (no prefix): typing an expression (`2+2`, `sqrt(16)`, `200*15%`) pins a **Calculator** row above every other result; shape decides whether something counts as math, not spacing, so a date, a resolution, or a ratio (`20-05-2026`, `1920x1080`, `16:9`) is left alone. `Enter` or a click copies the value and hides the launcher; clipboard history shows the worked expression (`2+2 = 4`) but still pastes just the value. Shared `core/calc` engine on macOS, Linux, and Windows
+- arithmetic queries (no prefix): typing an expression (`2+2`, `sqrt(16)`, `200*15%`) pins a **Calculator** row above every other result; shape decides whether something counts as math, not spacing, so a date, a resolution, or a ratio (`20-05-2026`, `1920x1080`, `16:9`) is left alone. `Enter` or a click copies the value and hides the launcher; clipboard history shows the worked expression (`2+2 = 4`) but still pastes just the value. Shared `core/calc` engine
 - open with `Enter`, reveal in Finder with `Cmd+F`
 - copy selected file/folder path/content handle with `Cmd+C`
 - multi-pick files/folders with `Cmd+P` (toggle); picked set is mirrored to the system pasteboard for paste anywhere. `Cmd+Shift+P` clears the set
@@ -26,7 +26,7 @@ This document tracks what `look` supports today and what is planned next.
 - pinned **Trash** quick folder (type `trash`): `Enter` opens it in Finder, its preview shows the item count, and `Cmd+D` empties it via Finder (confirmed, since it's permanent)
 - preview pane: text/image file previews, plus folder previews listing the immediate children (folders first, capped at 30, click to open)
 - hide the selected app from Look with `Cmd+Shift+H` / `Ctrl+Shift+H` so it stops appearing in results
-- run the selected app as administrator with `Ctrl+Shift+Enter` (Windows only, triggers a UAC prompt)
+- run the selected app as administrator with `Ctrl+Shift+Enter` (triggers a UAC prompt)
 
 ### Clipboard and translation
 
@@ -76,10 +76,9 @@ This document tracks what `look` supports today and what is planned next.
 - an icon row rendered on the right half of the search bar: when enabled, the search field takes the left half and the running-app icons occupy the right (right-aligned, growing leftward as more apps open). Apps are capped at 9, sorted alphabetically and **stable** - positions don't shuffle when you switch apps
   - **macOS**: from `NSWorkspace.shared.runningApplications`, filtered to regular apps
   - **Linux**: from `/proc` scan, filtered by what GNOME Shell's `Shell.AppSystem.get_running()` considers a windowed app (via Look's GNOME extension on Wayland) or by `wlr-foreign-toplevel` / X11 client-list / desktop-hints on other compositors
-  - **Windows**: from running-window enumeration via Win32
-- on the home screen, activation: `Cmd`+badge digit (macOS) / `Alt`+badge digit (Linux, Windows). In command mode, `Cmd+1`..`Cmd+7` / `Ctrl+1`..`Ctrl+7` keep their existing command-catalog semantics
+- on the home screen, activation: `Cmd`+badge digit (macOS) / `Alt`+badge digit (Linux). In command mode, `Cmd+1`..`Cmd+7` / `Ctrl+1`..`Ctrl+7` keep their existing command-catalog semantics
 - badge labels follow an ergonomic outer-first layout: with N running apps we consume the easiest-to-reach keys first (`1, 2, 3, 9, 8` before `4`, then `7`, then `6`, then `5`). 5 running apps → badges `1, 2, 3, 8, 9`; 9 running apps → all of `1`..`9`
-- focus paths: macOS = `NSRunningApplication.activate()` with Dock-style reopen for windowless apps; Linux = GNOME Shell extension D-Bus on GNOME Wayland, `wlr-foreign-toplevel-management` on sway/Hyprland, niri IPC on niri (focuses and scrolls to the window's workspace), `i3-msg` on i3, `_NET_ACTIVE_WINDOW` (x11rb) on other X11 WMs; Windows = `SetForegroundWindow` via window handle
+- focus paths: macOS = `NSRunningApplication.activate()` with Dock-style reopen for windowless apps; Linux = GNOME Shell extension D-Bus on GNOME Wayland, `wlr-foreign-toplevel-management` on sway/Hyprland, niri IPC on niri (focuses and scrolls to the window's workspace), `i3-msg` on i3, `_NET_ACTIVE_WINDOW` (x11rb) on other X11 WMs
 - click on an icon also switches; hover shows app name + shortcut tooltip; active app has an accent ring
 - toggled on/off via `Settings > Appearance > Running Apps`. Persisted as `running_apps_placement` in `~/.look/config` (`none` = off, any other value = on; legacy `top`/`right`/`bottom` still load as "on"). The window is a single fixed size and never resizes for the row
 - off hides the row and disables the activation shortcut
@@ -88,9 +87,9 @@ This document tracks what `look` supports today and what is planned next.
 ### Super actions
 
 - a control strip on the empty home screen (no query typed) with system toggles, one-shot actions and read-only info tiles
-- the tile set, order, sizes and mnemonics come from the shared `core/qactions` catalog, so macOS, Linux and Windows render the same strip; only the native state reads and control paths differ. On Linux the strip works across GNOME, KDE and tiling WMs including i3
+- the tile set, order, sizes and mnemonics come from the shared `core/qactions` catalog, so macOS and Linux render the same strip; only the native state reads and control paths differ. On Linux the strip works across GNOME, KDE and tiling WMs including i3
 - tiles: L slot (Pomodoro session > remaining todos > clock), Bluetooth, Wi-Fi, Battery, Theme, Keep Awake, Screensaver, Weather, Mic, Restart, Shut Down, Now Playing
-- activation: click a tile, or press the platform modifier + its highlighted letter - `Cmd` (macOS) / `Alt` (Linux, Windows): `B` Bluetooth, `W` Wi-Fi, `T` Theme, `K` Keep Awake, `S` Screensaver, `M` Mic, `R` Restart, `D` Shut Down, `P` Now Playing play/pause
+- activation: click a tile, or press the platform modifier + its highlighted letter - `Cmd` (macOS) / `Alt` (Linux): `B` Bluetooth, `W` Wi-Fi, `T` Theme, `K` Keep Awake, `S` Screensaver, `M` Mic, `R` Restart, `D` Shut Down, `P` Now Playing play/pause
 - Restart and Shut Down arm on the first press and fire on the second; `Esc` (macOS) or the auto-disarm timeout cancels
 - Battery, Weather and the L slot are read-only
 - toggled on/off via `Settings > Appearance > Super Actions`. Persisted as `super_actions_enabled` in `~/.look/config`
@@ -100,7 +99,7 @@ This document tracks what `look` supports today and what is planned next.
 
 - your own rows from TOML files in `~/.look/sources/`, indexed and ranked alongside apps and files, with their own usage history
 - as many `.toml` files as you like in that directory, merged into one set of blocks (ids unique across all of them, `then` resolves across files); `LOOK_SOURCES_DIR` repoints the directory for dotfiles kept elsewhere
-- commands are shell text run by the user's login shell (`$SHELL -lc` on Unix, `cmd /D /S /C` on Windows), so a block can call the user's own script in any language; non-POSIX shells (fish, nu) fall back to `/bin/sh` rather than failing per-command
+- commands are shell text run by the user's login shell (`$SHELL -lc` on Unix), so a block can call the user's own script in any language; non-POSIX shells (fish, nu) fall back to `/bin/sh` rather than failing per-command
 - four block kinds, one producer key each: `do` (one row that performs steps), `dir` (children of one or more directories), `file` (lines of a text file), `run` (lines a command prints)
 - `dir` rows stay real files and folders, so preview, reveal, copy, and the file verbs keep working on them
 - per-block verbs (`open`, `edit`, `terminal`, `reveal`) overriding the global preferred tools for that block's rows only
@@ -111,7 +110,7 @@ This document tracks what `look` supports today and what is planned next.
 - an executable dropped in the sources directory is a `run` block with everything inferred, no declaration needed
 - `aliases`, `bias`, `icon`, and `enabled` per block; unknown keys reported, never fatal
 - `run` rows are refreshed on reload (`Cmd+Shift+;`) and cached in `~/.look/cache/rows/`, so a failed command keeps the last good rows and their ranking
-- shared `core/sources` engine on macOS, Linux, and Windows. See [`docs/user-sources.md`](user-sources.md), and [lookbook](https://github.com/kunkka19xx/lookbook) for ready-made sources to copy
+- shared `core/sources` engine. See [`docs/user-sources.md`](user-sources.md), and [lookbook](https://github.com/kunkka19xx/lookbook) for ready-made sources to copy
 
 ### Settings and runtime config
 

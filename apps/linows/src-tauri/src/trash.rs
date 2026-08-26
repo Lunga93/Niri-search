@@ -1,11 +1,8 @@
 //! Move-to-Trash + Empty-Trash IPC. The `trash` crate's `os_limited` module
-//! (list / purge) covers Linux and macOS; Windows goes through the Shell API
-//! (`SHQueryRecycleBinW` / `SHEmptyRecycleBinW`) in
-//! `platform::windows::recycle_bin`.
+//! (list / purge) covers Linux and macOS.
 
 use std::path::{Path, PathBuf};
 
-#[cfg(target_os = "linux")]
 const HOME_PIN_SUFFIXES: &[&str] = &[
     "Desktop",
     "Documents",
@@ -15,15 +12,6 @@ const HOME_PIN_SUFFIXES: &[&str] = &[
     "Music",
     "Public",
     "Templates",
-];
-#[cfg(target_os = "windows")]
-const HOME_PIN_SUFFIXES: &[&str] = &[
-    "Desktop",
-    "Documents",
-    "Downloads",
-    "Pictures",
-    "Videos",
-    "Music",
 ];
 
 #[cfg(target_os = "linux")]
@@ -52,21 +40,10 @@ fn is_inside_trash_dir(_path: &Path) -> bool {
 }
 
 fn home_dir() -> Option<PathBuf> {
-    #[cfg(target_os = "windows")]
-    {
-        std::env::var("USERPROFILE")
-            .ok()
-            .filter(|v| !v.is_empty())
-            .or_else(|| std::env::var("HOME").ok().filter(|v| !v.is_empty()))
-            .map(PathBuf::from)
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        std::env::var("HOME")
-            .ok()
-            .filter(|v| !v.is_empty())
-            .map(PathBuf::from)
-    }
+    std::env::var("HOME")
+        .ok()
+        .filter(|v| !v.is_empty())
+        .map(PathBuf::from)
 }
 
 fn is_safe_to_trash(path: &Path) -> Result<(), String> {
@@ -79,10 +56,6 @@ fn is_safe_to_trash(path: &Path) -> Result<(), String> {
     }
     if path == Path::new("/") {
         return Err("cannot trash filesystem root".into());
-    }
-    #[cfg(target_os = "windows")]
-    if path_str.len() <= 3 && path_str.ends_with(":\\") {
-        return Err("cannot trash drive root".into());
     }
     if let Some(home) = home_dir() {
         if path == home {
@@ -138,34 +111,20 @@ pub fn trash_paths(paths: Vec<String>) -> TrashOutcome {
 
 #[tauri::command]
 pub fn count_trash_items() -> Result<usize, String> {
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
-    {
-        trash::os_limited::list()
-            .map(|items| items.len())
-            .map_err(|err| err.to_string())
-    }
-    #[cfg(target_os = "windows")]
-    {
-        crate::platform::windows::recycle_bin::count()
-    }
+    trash::os_limited::list()
+        .map(|items| items.len())
+        .map_err(|err| err.to_string())
 }
 
 #[tauri::command]
 pub fn empty_trash() -> Result<usize, String> {
-    #[cfg(any(target_os = "linux", target_os = "macos"))]
-    {
-        let items = trash::os_limited::list().map_err(|err| err.to_string())?;
-        let count = items.len();
-        if count == 0 {
-            return Ok(0);
-        }
-        trash::os_limited::purge_all(items).map_err(|err| err.to_string())?;
-        Ok(count)
+    let items = trash::os_limited::list().map_err(|err| err.to_string())?;
+    let count = items.len();
+    if count == 0 {
+        return Ok(0);
     }
-    #[cfg(target_os = "windows")]
-    {
-        crate::platform::windows::recycle_bin::empty()
-    }
+    trash::os_limited::purge_all(items).map_err(|err| err.to_string())?;
+    Ok(count)
 }
 
 #[cfg(test)]

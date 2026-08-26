@@ -11,34 +11,12 @@ pub struct SysInfoEntry {
 
 #[tauri::command]
 pub fn get_system_info() -> Vec<Vec<SysInfoEntry>> {
-    #[cfg(target_os = "linux")]
-    {
-        crate::platform::linux::sysinfo::collect()
-    }
-    #[cfg(target_os = "windows")]
-    {
-        crate::platform::windows::sysinfo::collect()
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    {
-        Vec::new()
-    }
+    crate::platform::linux::sysinfo::collect()
 }
 
 /// Compact system uptime for the launchpad info tile, shown in place of Battery
 /// on a machine with no battery. `None` when unavailable on this OS.
 #[tauri::command]
 pub fn system_uptime() -> Option<String> {
-    #[cfg(target_os = "linux")]
-    {
-        crate::platform::linux::sysinfo::uptime()
-    }
-    #[cfg(target_os = "windows")]
-    {
-        crate::platform::windows::sysinfo::uptime()
-    }
-    #[cfg(not(any(target_os = "linux", target_os = "windows")))]
-    {
-        None
-    }
+    crate::platform::linux::sysinfo::uptime()
 }

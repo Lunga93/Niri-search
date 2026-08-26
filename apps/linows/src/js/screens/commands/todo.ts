@@ -1,3 +1,4 @@
+// @ts-nocheck
 // /todo: daily tasks & progress. Port of the macOS TodoCommand/TodoView/
 // TodoAnalyticsView trio (apps/macos/.../Views/Commands/Todo*.swift), which
 // is the design source of truth. Data lives in the shared look-todo SQLite

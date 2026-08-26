@@ -36,9 +36,9 @@
 ### 4. Windows platform — REMOVED
 - **Lines removed:** 4,667
 - **Files removed:** 21
-- **What:** Windows-specific code (autostart, clipboard, icons, process management)
-- **Why:** We're Linux-only
-- **Performance impact:** Significant — removes platform-specific dependencies
+- **What:** Windows-specific code (autostart, clipboard, icons, process management) plus all Windows references in config, build files, and documentation
+- **Why:** We're Linux-only (Niri compositor)
+- **Performance impact:** Significant — removes platform-specific dependencies and build complexity
 
 ### 5. Linux platform — STUBBED
 - **Lines removed:** ~1,000 (estimated)
@@ -83,7 +83,6 @@
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
 | **Stubbed Linux code breaks** | Medium | High | Keep original impl as reference, test thoroughly |
-| **Missing Windows features** | Low | Low | Not applicable — Linux-only |
 | **AI removal breaks search** | Low | Medium | Search works without AI — tested |
 | **Frontend regression** | Low | High | JS/CSS unchanged, only build tooling added |
 
@@ -93,7 +92,7 @@
 |------|--------|-------|
 | ~~AI crate~~ | ✅ Removed | 7,174 lines |
 | ~~macOS platform~~ | ✅ Removed | 39,486 lines |
-| ~~Windows platform~~ | ✅ Removed | 4,667 lines |
+| ~~Windows platform~~ | ✅ Removed | 4,667 lines + all references in config/build/docs |
 | ~~Lunar crate~~ | ✅ Removed | 203 lines |
 | Linux stubs → real impl | ⏳ Pending | Replace no-ops with Niri-specific code |
 | Frontend TypeScript conversion | ⏳ Pending | 38 JS files → TypeScript |

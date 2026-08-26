@@ -190,14 +190,6 @@ pub fn reveal(tools: &Tools, target: &Target) -> Launch {
     }
 }
 
-/// Composition emits POSIX shell text down to its quoting, so a platform without
-/// a POSIX shell takes [`windows_launch`] instead of being handed text `cmd`
-/// would mangle.
-#[cfg(unix)]
-const POSIX_SHELL_AVAILABLE: bool = true;
-#[cfg(not(unix))]
-const POSIX_SHELL_AVAILABLE: bool = false;
-
 /// `text_editor` for a file, `code_editor` for a folder; declaring one covers
 /// both.
 pub fn edit(tools: &Tools, target: &Target) -> Result<Launch, Unavailable> {
@@ -252,10 +244,6 @@ fn in_terminal(
         },
     })?;
 
-    if !POSIX_SHELL_AVAILABLE {
-        return windows_launch(terminal, target, editor);
-    }
-
     // Quoted like the path: a tool declared as `/opt/my tools/nvim` is one
     // word. A tool is a name, never a command with its own args.
     let inner = match editor {
@@ -280,37 +268,6 @@ fn in_terminal(
         tool: terminal.to_string(),
         command,
     })
-}
-
-/// The Windows half: `windows_terminals` owns which argv a terminal takes.
-/// Paths go in with backslashes, the separator every console host parses.
-fn windows_launch(
-    terminal: &str,
-    target: &Target,
-    editor: Option<&str>,
-) -> Result<Launch, Unavailable> {
-    let cwd = native_path(&target.dir());
-    let path = native_path(target.path());
-    let command: Vec<&str> = match editor {
-        None => Vec::new(),
-        Some(tool) => vec![tool, &path],
-    };
-
-    let args = crate::windows_terminals::argv(terminal, &cwd, &command).ok_or_else(|| {
-        Unavailable::CannotRunCommand {
-            tool: terminal.to_string(),
-        }
-    })?;
-
-    Ok(Launch::Argv {
-        tool: terminal.to_string(),
-        args,
-        cwd,
-    })
-}
-
-fn native_path(path: &str) -> String {
-    path.replace('/', "\\")
 }
 
 /// `<terminal> <prefix...> "$SHELL" -lc '<inner>'`. The inner login shell is what

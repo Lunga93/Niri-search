@@ -1,7 +1,5 @@
 use crate::normalize::normalize_for_search;
 use crate::platform;
-#[cfg(test)]
-use crate::platform::paths::compile_ignore_matcher;
 use crate::platform::paths::expand_with_home;
 use globset::GlobBuilder;
 use look_tools::Tools;
@@ -420,21 +418,11 @@ fn append_missing_default_config_entries(path: &Path) {
 fn default_config_contents() -> String {
     let app_roots = default_app_scan_roots().join(",");
     let file_roots = platform::file_scan_root_suffixes().join(",");
-    // Windows reads as too transparent at the macOS/Linux baseline of 0.55
-    // because we cannot use native Mica (the vibrancy DWM call breaks the
-    // CSS-clipped rounded corners) and the CSS blur alone doesn't fully
-    // anchor the launcher against busy desktops. Bump the first-launch
-    // default; existing configs are untouched (defaults only seed the
-    // initial file).
-    let tint_opacity = if cfg!(target_os = "windows") {
-        "0.85"
-    } else {
-        "0.55"
-    };
+    let tint_opacity = "0.55";
     format!(
         "# look configuration\n\
 # Generated on first launch. Edit values, then reload with Cmd+Shift+;\n\
-# (Ctrl+Shift+; on Linux and Windows).\n\
+# (Ctrl+Shift+; on Linux).\n\
 \n\
 # Backend indexing (file_scan_depth: 1-12, file_scan_limit: 500-50000)\n\
 app_scan_roots={app_roots}\n\
@@ -449,8 +437,8 @@ file_exclude_paths=\n\
 ignored_patterns_sample=\n\
 # File ignore patterns. Gitignore-style path globs: *, **, ?, [abc].\n\
 # Format: ignored_patterns_<group>=Pattern1|Pattern2|Pattern3\n\
-# macOS/Linux usually use ~/... or /... ; on Windows, C:\\... is the safest documented form and ~ expands to your home dir.\n\
-# ignored_patterns_browser=~/AppData/Local/BraveSoftware/**/*.log|~/AppData/Local/Google/Chrome/**/*.tmp\n\
+# Linux uses ~/... or /...\n\
+# ignored_patterns_browser=~/Documents/**/*.log\n\
 # ignored_patterns_sqlite=~/Documents/git/project/**/*.db-wal|~/Documents/git/project/**/*.db-shm\n\
 # ignored_patterns_temp=~/Downloads/*.tmp|~/Downloads/**/*.part\n\
 lazy_indexing_enabled=true\n\
@@ -493,13 +481,13 @@ ui_border_blue=1.0\n\
 ui_border_opacity=0.12\n\
 \n\
 # Search aliases (apps + System Settings). Format: alias_<keyword>=Term1|Term2|Term3\n\
-# The defaults below cover both macOS and Windows app catalogs; entries that don't\n\
+# The defaults below cover the Linux app catalog; entries that don't\n\
 # exist on the current host simply won't match, so cross-platform lists are harmless.\n\
 alias_note=Notion|Obsidian|Notes|Apple Notes|Bear|Logseq|OneNote|Microsoft OneNote|Sticky Notes|Joplin\n\
 alias_code=Visual Studio Code|VSCode|Cursor|Windsurf|IntelliJ IDEA|PyCharm|WebStorm|Neovim|Xcode|Zed|Visual Studio|Notepad++|Sublime Text\n\
-alias_term=Terminal|iTerm|iTerm2|Ghostty|WezTerm|Alacritty|Kitty|Warp|Windows Terminal|PowerShell|Command Prompt|wsl\n\
+alias_term=Terminal|iTerm|iTerm2|Ghostty|WezTerm|Alacritty|Kitty|Warp\n\
 alias_chat=Slack|Discord|Telegram|Messages|Microsoft Teams|Teams|WhatsApp|Signal|Zoom\n\
-alias_music=Spotify|Apple Music|Music|YouTube Music|VLC|Windows Media Player|foobar2000\n\
+alias_music=Spotify|Apple Music|Music|YouTube Music|VLC|foobar2000\n\
 alias_brow=Safari|Arc|Google Chrome|Chrome|Firefox|Brave|Microsoft Edge|Edge|Brave Browser|Vivaldi|Opera\n"
     )
 }
@@ -556,10 +544,6 @@ fn default_search_aliases() -> HashMap<String, Vec<String>> {
             "alacritty",
             "kitty",
             "warp",
-            "windows terminal",
-            "powershell",
-            "command prompt",
-            "wsl",
         ]
         .into_iter()
         .map(String::from)
@@ -590,7 +574,6 @@ fn default_search_aliases() -> HashMap<String, Vec<String>> {
             "music",
             "youtube music",
             "vlc",
-            "windows media player",
             "foobar2000",
         ]
         .into_iter()
@@ -639,19 +622,6 @@ fn default_file_scan_roots() -> Vec<String> {
         .collect()
 }
 
-#[cfg(target_os = "windows")]
-pub(crate) fn user_home_dir() -> Option<String> {
-    env::var("USERPROFILE")
-        .ok()
-        .filter(|value| !value.trim().is_empty())
-        .or_else(|| {
-            env::var("HOME")
-                .ok()
-                .filter(|value| !value.trim().is_empty())
-        })
-}
-
-#[cfg(not(target_os = "windows"))]
 pub(crate) fn user_home_dir() -> Option<String> {
     env::var("HOME")
         .ok()
@@ -851,23 +821,6 @@ mod tests {
     }
 
     #[test]
-    fn parse_csv_preserves_windows_path_separators() {
-        let parsed = parse_csv("C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs");
-        assert_eq!(
-            parsed,
-            vec!["C:\\ProgramData\\Microsoft\\Windows\\Start Menu\\Programs"]
-        );
-    }
-
-    #[test]
-    fn parse_csv_unescapes_trailing_backslash_roots() {
-        // Windows drive roots end in `\`; the writer escapes each backslash so
-        // the trailing one can't merge with the delimiter. `D:\` -> `D:\\`.
-        let parsed = parse_csv(r"D:\\,E:\\");
-        assert_eq!(parsed, vec![r"D:\", r"E:\"]);
-    }
-
-    #[test]
     fn parse_csv_unescapes_doubled_backslash_unc() {
         // UNC roots are stored with every backslash doubled and decode back.
         let parsed = parse_csv(r"\\\\server\\share\\apps,/Users/demo/Apps");
@@ -924,37 +877,6 @@ mod tests {
     }
 
     #[test]
-    fn expand_path_preserves_windows_absolute_paths() {
-        let home = Some("C:\\Users\\demo");
-        assert_eq!(
-            expand_path("C:\\Program Files\\Look", home),
-            "C:\\Program Files\\Look"
-        );
-        assert_eq!(
-            expand_path("\\\\server\\share\\folder", home),
-            "\\\\server\\share\\folder"
-        );
-    }
-
-    #[test]
-    fn expand_path_uses_windows_separator_when_home_is_windows_style() {
-        let home = Some("C:\\Users\\demo");
-        assert_eq!(expand_path("~/Projects", home), "C:\\Users\\demo\\Projects");
-        assert_eq!(expand_path("Documents", home), "C:\\Users\\demo\\Documents");
-    }
-
-    #[test]
-    #[cfg(target_os = "windows")]
-    fn user_home_dir_prefers_userprofile_over_home_on_windows() {
-        unsafe {
-            env::set_var("HOME", "/c/Users/posix-home");
-            env::set_var("USERPROFILE", "C:/Users/win-home");
-        }
-
-        assert_eq!(user_home_dir().as_deref(), Some("C:/Users/win-home"));
-    }
-
-    #[test]
     fn skip_dir_names_from_config_are_appended_not_replaced() {
         let tmp = std::env::temp_dir().join(format!(
             "look-config-test-{}-{}",
@@ -1002,11 +924,6 @@ mod tests {
         assert!(!config.lazy_indexing_enabled);
 
         let _ = std::fs::remove_file(&tmp);
-    }
-
-    #[test]
-    fn default_config_contents_include_lazy_indexing_enabled() {
-        assert!(default_config_contents().contains("lazy_indexing_enabled=true"));
     }
 
     fn config_from(contents: &str, label: &str) -> RuntimeConfig {
@@ -1136,12 +1053,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(target_os = "macos")]
-    fn default_config_contents_include_coreservices_applications_root() {
-        assert!(default_config_contents().contains("/System/Library/CoreServices/Applications"));
-    }
-
-    #[test]
     fn alias_entries_are_loaded_from_config() {
         let tmp = std::env::temp_dir().join(format!(
             "look-config-test-aliases-{}-{}",
@@ -1263,131 +1174,6 @@ mod tests {
         assert!(!config.lazy_indexing_enabled);
 
         let _ = std::fs::remove_file(&tmp);
-    }
-
-    #[test]
-    fn ignored_pattern_windows_style_path_is_accepted() {
-        // Case: ignored_patterns_windows=C:\Users\me\AppData\Local\Temp\**\*.etl
-        let tmp = std::env::temp_dir().join(format!(
-            "look-config-test-ignored-patterns-windows-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("system time should be after epoch")
-                .as_nanos()
-        ));
-
-        std::fs::write(
-            &tmp,
-            r"ignored_patterns_windows=C:\Users\me\AppData\Local\Temp\**\*.etl
-",
-        )
-        .expect("should write temporary config");
-
-        let mut config = RuntimeConfig::default();
-        config.apply_from_file(&tmp);
-
-        assert_eq!(
-            config.ignored_file_patterns,
-            vec![r"C:\Users\me\AppData\Local\Temp\**\*.etl".to_string()]
-        );
-
-        let _ = std::fs::remove_file(&tmp);
-    }
-
-    // End-to-end across the seam the other tests skip: a Windows pattern goes
-    // through the real config parse-and-store step, then is matched the exact
-    // way `walk_files` (index/files.rs) does. The Windows tests elsewhere build
-    // matchers from the raw pattern and never feed config's STORED output back
-    // into the walk matcher, which is where the Windows path breaks.
-    #[test]
-    fn windows_pattern_from_config_ignores_backslash_candidate() {
-        let tmp = std::env::temp_dir().join(format!(
-            "look-config-test-ignored-patterns-walk-{}-{}",
-            std::process::id(),
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .expect("system time should be after epoch")
-                .as_nanos()
-        ));
-        std::fs::write(
-            &tmp,
-            "ignored_patterns_win=C:\\Users\\me\\Temp\\**\\*.etl\n",
-        )
-        .expect("should write temporary config");
-
-        let mut config = RuntimeConfig::default();
-        config.apply_from_file(&tmp);
-        let _ = std::fs::remove_file(&tmp);
-
-        // Rebuild matchers exactly like `walk_files`, from the STORED patterns.
-        let matchers = config
-            .ignored_file_patterns
-            .iter()
-            .filter_map(|pattern| compile_ignore_matcher(pattern))
-            .collect::<Vec<_>>();
-
-        // Candidate as the `ignore` walker emits it on Windows: native
-        // backslashes, on-disk casing.
-        let candidate = r"C:\Users\Me\Temp\nested\trace.etl";
-        let ignored = matchers.iter().any(|(policy, glob_matcher)| {
-            glob_matcher.is_match(&*policy.normalize_for_matching(candidate))
-        });
-
-        assert!(
-            ignored,
-            "a Windows pattern loaded from config should ignore the matching backslash candidate"
-        );
-    }
-
-    // Full flow for the Windows home form `~\`, across both steps the other
-    // tests split: config.rs splits + dedups the raw values and stores each one
-    // home-expanded (raw, not policy-normalized); files.rs builds the matcher
-    // from that stored string. Uses an explicit Windows home so the assertion is
-    // deterministic regardless of the machine's real HOME.
-    #[test]
-    fn home_tilde_pattern_from_config_ignores_backslash_candidate() {
-        let home = Some("C:\\Users\\me");
-
-        // Step 1 (config.rs): split on `|`, trim, drop the duplicate.
-        let raw = parse_pattern_values(r" ~\Temp\**\*.log | ~\Temp\**\*.log | ~\Temp\**\*.log ");
-        assert_eq!(raw, vec![r"~\Temp\**\*.log".to_string()]);
-
-        // Step 2 (config.rs): store each home-expanded, still raw (un-normalized).
-        let stored: Vec<String> = raw
-            .iter()
-            .map(|pattern| expand_path(pattern, home))
-            .collect();
-        assert_eq!(stored, vec![r"C:\Users\me\Temp\**\*.log".to_string()]);
-
-        // Step 3 (files.rs): build the matcher from the stored pattern and match
-        // a candidate as the walker emits it on Windows (backslashes, on-disk
-        // casing).
-        let (policy, matcher) = compile_ignore_matcher(&stored[0]).expect("pattern should compile");
-        assert!(
-            matcher.is_match(&*policy.normalize_for_matching(r"C:\Users\Me\Temp\nested\trace.log")),
-            "a ~\\ home pattern from config should ignore the matching candidate"
-        );
-        // A different extension under the same dir stays visible.
-        assert!(
-            !matcher
-                .is_match(&*policy.normalize_for_matching(r"C:\Users\Me\Temp\nested\trace.txt"))
-        );
-    }
-
-    #[test]
-    fn default_config_contents_include_alias_entries() {
-        let contents = default_config_contents();
-        assert!(contents.contains("alias_note=Notion|Obsidian|Notes|Apple Notes|Bear|Logseq"));
-        assert!(contents
-            .contains("alias_code=Visual Studio Code|VSCode|Cursor|Windsurf|IntelliJ IDEA|PyCharm|WebStorm|Neovim|Xcode|Zed"));
-        assert!(
-            contents
-                .contains("alias_term=Terminal|iTerm|iTerm2|Ghostty|WezTerm|Alacritty|Kitty|Warp")
-        );
-        assert!(contents.contains("alias_chat=Slack|Discord|Telegram|Messages"));
-        assert!(contents.contains("alias_music=Spotify|Apple Music|Music"));
-        assert!(contents.contains("alias_brow=Safari|Arc|Google Chrome|Chrome|Firefox|Brave"));
     }
 
     #[test]

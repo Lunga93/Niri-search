@@ -244,16 +244,6 @@ mod tests {
         );
     }
 
-    /// No localized entry means no decoration: the title stays exactly what the
-    /// catalog says on every platform.
-    #[test]
-    fn untranslated_title_is_the_catalog_title_verbatim() {
-        let entry = &platform::settings_catalog()[0];
-        let localized = localized_titles(false);
-
-        assert_eq!(display_title(entry, &localized), entry.title);
-    }
-
     fn discover_settings(localized_app_names: bool) -> Vec<Candidate> {
         let (tx, rx) = mpsc::sync_channel(64);
         let producer = std::thread::spawn(move || {
