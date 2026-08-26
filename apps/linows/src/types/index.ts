@@ -37,6 +37,11 @@ export interface ConfigEntry {
   value: string;
 }
 
+// Config payload from get_config
+export interface ConfigPayload {
+  entries: ConfigEntry[];
+}
+
 // System info
 export interface SystemInfo {
   hostname: string;

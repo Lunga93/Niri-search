@@ -10,14 +10,18 @@
     "resolveJsonModule": true,
     "isolatedModules": true,
     "noEmit": true,
-    "strict": true,
+    "strict": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "noFallthroughCasesInSwitch": true,
     "esModuleInterop": true,
     "allowJs": true,
-    "checkJs": false
+    "checkJs": true,
+    "baseUrl": "..",
+    "paths": {
+      "*": ["../src/*"]
+    }
   },
-  "include": ["../src/**/*"],
-  "references": [{ "path": "./tsconfig.node.json" }]
+  "include": ["../src/**/*.js", "../src/**/*.ts"],
+  "exclude": ["../src/node_modules/**/*"]
 }

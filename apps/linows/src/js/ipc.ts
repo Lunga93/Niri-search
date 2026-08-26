@@ -6,6 +6,7 @@ import type {
   SearchResponse,
   HealthIssue,
   ConfigEntry,
+  ConfigPayload,
   SystemInfo,
   ProcessInfo,
   ClipboardEntry,
@@ -93,8 +94,8 @@ export async function reloadConfig(): Promise<void> {
   return invoke('reload_config') as Promise<void>;
 }
 
-export async function getConfig(): Promise<ConfigEntry[]> {
-  return invoke('get_config') as Promise<ConfigEntry[]>;
+export async function getConfig(): Promise<ConfigPayload> {
+  return invoke('get_config') as Promise<ConfigPayload>;
 }
 
 export async function setConfig(updates: ConfigEntry[]): Promise<void> {

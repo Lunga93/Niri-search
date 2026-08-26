@@ -156,19 +156,19 @@ document.addEventListener('DOMContentLoaded', async () => {
     );
 
     // DOM refs
-    const queryInput = document.getElementById('query');
-    const resultsList = document.getElementById('results-list');
-    const previewPanel = document.getElementById('preview-panel');
-    const hintBar = document.getElementById('hint-bar');
-    const hintMessage = document.getElementById('hint-message');
-    const contentArea = document.getElementById('search-content');
-    const resultsArea = document.getElementById('results-area');
-    const aiCardEl = document.getElementById('ai-answer-card');
-    const helpScreen = document.getElementById('help-screen');
-    const previewCol = document.getElementById('preview-col');
-    const breadcrumbEl = document.getElementById('search-breadcrumb');
-    const placeholderEl = document.querySelector('.search-placeholder');
-    const previewFooter = document.getElementById('preview-footer');
+    const queryInput = /** @type {HTMLInputElement} */ (document.getElementById('query'));
+    const resultsList = /** @type {HTMLElement} */ (document.getElementById('results-list'));
+    const previewPanel = /** @type {HTMLElement} */ (document.getElementById('preview-panel'));
+    const hintBar = /** @type {HTMLElement} */ (document.getElementById('hint-bar'));
+    const hintMessage = /** @type {HTMLElement} */ (document.getElementById('hint-message'));
+    const contentArea = /** @type {HTMLElement} */ (document.getElementById('search-content'));
+    const resultsArea = /** @type {HTMLElement} */ (document.getElementById('results-area'));
+    const aiCardEl = /** @type {HTMLElement} */ (document.getElementById('ai-answer-card'));
+    const helpScreen = /** @type {HTMLElement} */ (document.getElementById('help-screen'));
+    const previewCol = /** @type {HTMLElement} */ (document.getElementById('preview-col'));
+    const breadcrumbEl = /** @type {HTMLElement} */ (document.getElementById('search-breadcrumb'));
+    const placeholderEl = /** @type {HTMLElement|null} */ (document.querySelector('.search-placeholder'));
+    const previewFooter = /** @type {HTMLElement} */ (document.getElementById('preview-footer'));
 
     // Floating "inner-gap" layout state (classes on .launcher-window)
     layout.init();
@@ -526,7 +526,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         const input = rest.slice(spaceIdx + 1);
         commands.enterById(cmdId);
         enterCommandMode();
-        const cmdInput = document.getElementById('cmd-input');
+        const cmdInput = /** @type {HTMLInputElement} */ (document.getElementById('cmd-input'));
         if (cmdInput && input) {
             cmdInput.value = input;
             cmdInput.dispatchEvent(new Event('input'));
@@ -539,7 +539,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // shows the results list, wakes the running-apps strip and then only
     // differs in hint text, preview visibility and empty-state flavor.
     queryInput.addEventListener('input', (e) => {
-        const value = e.target.value;
+        const value = /** @type {HTMLInputElement} */ (e.target).value;
 
         // A level owns the result list: its rows are produced live and are not
         // in the index, so typing filters them rather than searching. No
@@ -953,14 +953,14 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     // Live-update when the Settings → Appearance → Running Apps toggle changes.
     document.addEventListener('look:running-apps-changed', (e) => {
-        const enabled = e.detail.enabled;
+        const enabled = /** @type {CustomEvent} */ (e).detail.enabled;
         runningApps.setEnabled(enabled);
         if (enabled) runningApps.refresh();
     });
 
     // Live-update when the Settings → Appearance → Super Actions toggle changes.
     document.addEventListener('look:super-actions-changed', (e) => {
-        superactions.setEnabled(e.detail.enabled);
+        superactions.setEnabled(/** @type {CustomEvent} */ (e).detail.enabled);
         syncControlStrip();
     });
 
@@ -968,7 +968,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // changes. Propagate immediately so the card and suggestion rows appear or
     // disappear without a config reload.
     document.addEventListener('look:ai-enabled-changed', (e) => {
-        const enabled = e.detail.enabled;
+        const enabled = /** @type {CustomEvent} */ (e).detail.enabled;
         aiAnswer.setEnabled(enabled);
         search.setAiEnabled(enabled);
         // Re-run the current query so the new gate takes effect immediately
