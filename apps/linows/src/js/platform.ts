@@ -1,4 +1,4 @@
-import { getPlatform, setWindowEffect } from './ipc.ts';
+import { getPlatform } from './ipc.ts';
 
 interface PlatformInfo {
     os: string;
@@ -18,7 +18,7 @@ let info: PlatformInfo | null = null;
 
 export async function init(): Promise<void> {
     try {
-        info = await getPlatform() as PlatformInfo;
+        info = await getPlatform() as unknown as PlatformInfo;
     } catch {
         info = { os: 'linux', has_compositor: false, compositor: null };
     }

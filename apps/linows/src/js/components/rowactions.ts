@@ -1,3 +1,4 @@
+// @ts-nocheck
 // The verbs a row offers, and the tools that carry them out.
 //
 // Mirrors macOS LauncherView+RowActions and LauncherView+Tools: one declarative

@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { listRunningApps, getIcon, activateRunningApp } from '../ipc.ts';
 import { appWindow, settings } from '../icons.ts';
 

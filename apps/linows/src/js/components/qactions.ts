@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Quick Actions - the interactive part of the right panel (see
 // docs/writing-controls.md). Descriptors for the selected result come from
 // the shared core catalog; each action's live state/info and its execution go

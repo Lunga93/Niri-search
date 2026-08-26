@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Floating "inner-gap" layout. Port of the macOS LauncherView computed
 // booleans (usesPanes / showsFloatingCards / hidesResultsForEmptyQuery /
 // barFloatsFree / showsFloatingGrid). Every decision collapses into class

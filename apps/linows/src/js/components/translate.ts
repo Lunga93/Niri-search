@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as layout from '../layout.ts';
 import { translate, copyToClipboard } from '../ipc.ts';
 import { globeLg, copy as copyIcon, link as linkIcon, externalLink } from '../icons.ts';

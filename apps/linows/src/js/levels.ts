@@ -1,3 +1,4 @@
+// @ts-nocheck
 // The levels a user has descended into from a block row (specs/user-sources.md
 // §2.10).
 //

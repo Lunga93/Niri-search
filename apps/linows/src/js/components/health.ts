@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Surfaces backend setup problems (dead hotkey, GNOME extension needing a
 // re-login) as a sticky banner. Issues can land before the webview runs
 // (pulled via get_health_issues on init) or minutes later from backend

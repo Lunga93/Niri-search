@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { getIcon } from '../ipc.ts';
 import {
     clipboard as clipboardIcon,

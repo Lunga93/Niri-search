@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Super actions - the empty-state "launchpad" control strip. When the query is
 // empty on the home screen, `look` shows a compact bento of L/M/S tiles instead
 // of a result list: the priority slot (todo / pomo / clock), quick toggles

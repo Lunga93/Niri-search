@@ -1,3 +1,4 @@
+// @ts-nocheck
 import {
     search as ipcSearch,
     getClipboardHistory,

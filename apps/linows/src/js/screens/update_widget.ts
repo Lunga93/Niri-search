@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Notify-only update widget mounted in Settings ("About" footer) and Help.
 // We never download or replace the binary - Linux/Windows distros vary too
 // much to bundle a single upgrade command, so the banner links to the

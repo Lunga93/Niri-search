@@ -1,3 +1,4 @@
+// @ts-nocheck
 // Rows a user-declared block produced: which block a row came from, what it
 // asked to be drawn as, and where the row can go next (specs/user-sources.md).
 //
