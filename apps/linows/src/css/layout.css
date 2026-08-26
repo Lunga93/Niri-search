@@ -428,8 +428,8 @@ html[data-os="windows"] .launcher-window {
     font-size: 9px;
     font-weight: 700;
     letter-spacing: 0.5px;
-    color: #fff;
-    background: #e05252;
+    color: var(--on-accent-color);
+    background: var(--color-danger);
     padding: 1px 5px;
     border-radius: 3px;
 }
