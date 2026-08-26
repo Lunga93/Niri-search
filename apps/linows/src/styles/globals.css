@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* pywal color integration - these are set by apply-look-theme */
+:root {
+  --bg-tint: #1e1e2e;
+  --font-color: #dce0f5;
+  --font-secondary: #c8cee0;
+  --font-muted: rgba(180, 187, 210, 0.82);
+  --border-color: rgba(88, 91, 112, 0.28);
+  --border-thickness: 1px;
+  --panel-fill: rgba(49, 50, 68, 0.5);
+  --control-fill: rgba(69, 71, 90, 0.5);
+  --accent-color: #89b4fa;
+  --on-accent-color: #1e1e2e;
+  --color-success: #a6e3a1;
+  --color-warning: #fab387;
+  --color-danger: #f38ba8;
+  --color-info: #89b4fa;
+}
+
+/* Base layer */
+@layer base {
+  body {
+    @apply bg-bg-tint text-font-color font-sans;
+  }
+}
+
+/* Component layer */
+@layer components {
+  .search-bar {
+    @apply bg-control-fill border border-border-color rounded-card p-3;
+  }
+  
+  .result-card {
+    @apply bg-panel-fill border border-border-color rounded-card p-2 hover:bg-control-fill transition-colors;
+  }
+  
+  .result-card-selected {
+    @apply bg-accent-color text-on-accent;
+  }
+}
+
+/* Utility layer */
+@layer utilities {
+  .text-muted {
+    @apply text-font-muted;
+  }
+  
+  .text-secondary {
+    @apply text-font-secondary;
+  }
+}

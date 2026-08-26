@@ -5,8 +5,8 @@
   "identifier": "com.look.desktop",
   "build": {
     "frontendDist": "../src",
-    "beforeDevCommand": "",
-    "beforeBuildCommand": ""
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
   },
   "app": {
     "withGlobalTauri": true,
