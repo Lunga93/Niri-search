@@ -1,0 +1,196 @@
+import * as calc from './calc.ts';
+import * as pomo from './pomo.ts';
+import * as todo from './todo.ts';
+import * as speed from './speed.ts';
+import * as kill from './kill.ts';
+import * as shell from './shell.ts';
+import * as sys from './sys.ts';
+import { COMMAND_ENTRIES } from '../../catalog.ts';
+
+// catalog.js owns the order, the details and the Ctrl+N each command answers
+// to; this side only binds an id to the panel module that renders it.
+const MODULES = { calc, pomo, todo, speed, kill, shell, sys };
+
+const COMMANDS = COMMAND_ENTRIES.map((entry) => ({
+    ...entry,
+    label: `/${entry.id}`,
+    module: MODULES[entry.id],
+}));
+
+let screen = null;
+let sidebar = null;
+let contentArea = null;
+let mainSearchInput = null;
+
+let active = false;
+let selectedIndex = 0;
+let activeCommandId = 'calc';
+let onExit = null;
+let onCommandChange = null;
+
+export function init(contentAreaEl, inputEl, { onExitMode, onExecuteCommand, onGetIcon }) {
+    contentArea = contentAreaEl;
+    mainSearchInput = inputEl;
+    onExit = onExitMode;
+
+    screen = document.getElementById('commands-screen');
+    sidebar = document.getElementById('cmd-sidebar');
+
+    // Init each command module
+    calc.init(onExecuteCommand);
+    pomo.init();
+    todo.init();
+    speed.init();
+    kill.init(onExecuteCommand, onGetIcon);
+    shell.init(onExecuteCommand);
+    sys.init(onExecuteCommand);
+
+    // Every panel names its header slot the same way, so the catalog's icon
+    // reaches it without a per-command line.
+    for (const cmd of COMMANDS) {
+        const slot = document.getElementById(`cmd-${cmd.id}-header-icon`);
+        if (slot) slot.innerHTML = cmd.icon;
+    }
+
+    buildSidebar();
+}
+
+export function setOnCommandChange(fn) {
+    onCommandChange = fn;
+}
+
+export function isActive() {
+    return active;
+}
+
+export function enterById(cmdId) {
+    const idx = COMMANDS.findIndex((c) => c.id === cmdId);
+    if (idx < 0) return false;
+    activeCommandId = cmdId;
+    return true;
+}
+
+export function enter() {
+    active = true;
+    selectedIndex = COMMANDS.findIndex((c) => c.id === activeCommandId);
+    if (selectedIndex < 0) selectedIndex = 0;
+
+    contentArea.style.display = 'none';
+    screen.style.display = '';
+    mainSearchInput.parentElement.style.display = 'none';
+
+    updateSidebar();
+    currentModule().enter();
+}
+
+export function exit() {
+    active = false;
+    currentModule().exit();
+
+    screen.style.display = 'none';
+    contentArea.style.display = '';
+    mainSearchInput.parentElement.style.display = '';
+
+    if (onExit) onExit();
+}
+
+export function handleKey(e) {
+    if (!active) return false;
+
+    // Let the active command handle Escape first (e.g. dismiss confirm)
+    if (e.key === 'Escape') {
+        e.preventDefault();
+        const handled = currentModule().handleKey(e);
+        if (!handled) exit();
+        return true;
+    }
+
+    if (e.key === 'Tab' || (e.code === 'Tab' && e.key === 'Unidentified')) {
+        // A module editing a text field owns Tab (field-to-field movement).
+        const mod = currentModule();
+        if (mod.isEditing?.()) return mod.handleKey(e);
+        e.preventDefault();
+        switchCommand(e.shiftKey ? -1 : 1);
+        return true;
+    }
+
+    // Ctrl+1..N jump to command
+    if (e.ctrlKey && !e.shiftKey && e.key >= '1' && e.key <= String(COMMANDS.length)) {
+        e.preventDefault();
+        const idx = parseInt(e.key) - 1;
+        if (idx < COMMANDS.length && idx !== selectedIndex) {
+            switchTo(idx);
+        }
+        return true;
+    }
+
+    // Delegate to active command module
+    return currentModule().handleKey(e);
+}
+
+export function getActiveCommand() {
+    return activeCommandId;
+}
+
+// Delegate methods for app.js
+export function showFeedback(text, isError = false) {
+    const mod = currentModule();
+    if (mod.showFeedback) mod.showFeedback(text, isError);
+}
+
+export function setProcessList(procs, gen = null) {
+    kill.setProcessList(procs, gen);
+}
+
+export function setSysInfo(sections) {
+    sys.setSysInfo(sections);
+}
+
+// --- Internal ---
+
+function currentModule() {
+    return COMMANDS[selectedIndex].module;
+}
+
+function switchCommand(dir) {
+    currentModule().exit();
+    selectedIndex = (selectedIndex + dir + COMMANDS.length) % COMMANDS.length;
+    activeCommandId = COMMANDS[selectedIndex].id;
+    updateSidebar();
+    currentModule().enter();
+    if (onCommandChange) onCommandChange();
+}
+
+function switchTo(idx) {
+    currentModule().exit();
+    selectedIndex = idx;
+    activeCommandId = COMMANDS[idx].id;
+    updateSidebar();
+    currentModule().enter();
+    if (onCommandChange) onCommandChange();
+}
+
+function buildSidebar() {
+    sidebar.innerHTML = '';
+    COMMANDS.forEach((cmd, i) => {
+        const row = document.createElement('div');
+        row.className = 'cmd-row';
+        row.innerHTML = `
+      <span class="cmd-row-icon">${cmd.icon}</span>
+      <div class="cmd-row-text">
+        <div class="cmd-row-label">${cmd.label} <span class="cmd-row-shortcut">(Ctrl+${cmd.shortcut})</span></div>
+        <div class="cmd-row-detail">${cmd.detail}</div>
+      </div>`;
+        row.addEventListener('click', () => {
+            if (i !== selectedIndex) switchTo(i);
+        });
+        sidebar.appendChild(row);
+    });
+}
+
+function updateSidebar() {
+    const rows = sidebar.children;
+    for (let i = 0; i < rows.length; i++) {
+        rows[i].classList.toggle('cmd-row-active', i === selectedIndex);
+    }
+}
