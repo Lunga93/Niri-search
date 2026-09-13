@@ -15,6 +15,7 @@ pub mod sysinfo;
 pub mod tools;
 pub mod transparency;
 pub mod version;
+pub mod wallpaper;
 pub mod wayland_shortcut;
 pub mod window_focus;
 pub mod wlr_focus;

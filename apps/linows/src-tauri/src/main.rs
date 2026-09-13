@@ -570,7 +570,8 @@ fn main() {
         }))
         .plugin(tauri_plugin_dialog::init())
         .manage(AppState::new())
-        .manage(platform::IconCache::new());
+        .manage(platform::IconCache::new())
+        .manage(platform::linux::wallpaper::WallpaperState::new());
 
     // On X11 (or non-Linux), register the global shortcut plugin.
     // On Wayland, we use the XDG Desktop Portal instead (set up in .setup()).
@@ -600,6 +601,11 @@ fn main() {
             // session does not wait on it.
             #[cfg(target_os = "linux")]
             platform::linux::prime_user_session();
+
+            // Wallpaper state file watcher: re-samples the screen behind the
+            // window and pushes `wallpaper-changed` so the frost adapts.
+            #[cfg(target_os = "linux")]
+            platform::linux::wallpaper::start_watcher(app.handle().clone());
 
             register_shortcuts(app, use_wayland);
 
@@ -705,6 +711,7 @@ fn main() {
             // Platform: icons, detection, window effects
             platform::get_icon,
             platform::get_platform,
+            platform::wallpaper_snapshot,
             platform::list_candidate_drives,
             platform::set_window_effect,
             // Commands

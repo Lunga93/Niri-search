@@ -1186,6 +1186,10 @@ function applyThemePreset(themeId, overrides = {}) {
         document.documentElement.removeAttribute('data-theme');
     }
     applySurface(surfaceForTheme(themeId));
+    // Frost branch follows the theme: heavy grain on dark, clear bend on
+    // light. Here, not in the preset body below, so restores (no preset
+    // sliders to touch) still publish it.
+    platform.applyFrostTheme();
 
     const preset = THEME_PRESETS[themeId];
     if (!preset) return;

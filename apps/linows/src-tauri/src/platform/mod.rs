@@ -122,6 +122,44 @@ pub fn get_platform() -> PlatformInfo {
     }
 }
 
+// --- Wallpaper snapshot (cross-platform Tauri command) ---
+
+/// What is behind the launcher right now: the average brightness the tile
+/// scrim adapts to (0.0 black, 1.0 white) plus a grim capture of the window
+/// region for the frost displacement to warp. `image` is None when grim is
+/// unavailable; the scrim still adapts via the wallpaper-file fallback.
+#[derive(Serialize, Clone)]
+pub struct WallpaperPayload {
+    pub luminance: f32,
+    pub image: Option<String>,
+}
+
+/// Fresh capture on demand (summon path): samples the screen behind the
+/// window, caches it, and returns it. The file watcher pushes
+/// `wallpaper-changed` with the same shape when the wallpaper changes.
+#[tauri::command]
+pub fn wallpaper_snapshot(
+    window: tauri::WebviewWindow,
+    state: State<'_, linux::wallpaper::WallpaperState>,
+) -> WallpaperPayload {
+    let (luminance, image) = linux::wallpaper::capture_behind(&window);
+    eprintln!(
+        "[look:wallpaper] snapshot luminance={luminance:.3} image={}",
+        image.is_some()
+    ); // A failed capture keeps the last good image; hold the last good
+    // luminance too instead of swinging the scrim on one bad read. (A
+    // genuine 0.5 sample takes the same path: the cache already holds it.)
+    let luminance = if (luminance - linux::wallpaper::FALLBACK_LUMINANCE).abs() < f32::EPSILON {
+        state.luminance()
+    } else {
+        luminance
+    };
+    // A failed capture keeps the last good image; the scrim must still move.
+    let image = image.or_else(|| state.image());
+    state.store(luminance, image.clone());
+    WallpaperPayload { luminance, image }
+}
+
 // --- Drive enumeration (no-op on Linux) ---
 
 #[derive(Serialize)]

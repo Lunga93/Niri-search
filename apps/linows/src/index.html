@@ -9,6 +9,7 @@
         <link rel="stylesheet" href="css/motion.css" />
         <link rel="stylesheet" href="css/layout.css" />
         <link rel="stylesheet" href="css/liquid.css" />
+        <link rel="stylesheet" href="css/frost.css" />
         <link rel="stylesheet" href="css/components/results.css" />
         <link rel="stylesheet" href="css/components/preview.css" />
         <link rel="stylesheet" href="css/components/picked.css" />
@@ -25,6 +26,61 @@
         <link rel="stylesheet" href="css/components/caret.css" />
     </head>
     <body>
+        <!-- Frost displacement filters (frost.css). Heavy grain for dark
+             glass, gentle bending for light glass. Inline so url(#id)
+             resolves in the same document. -->
+        <svg width="0" height="0" style="position: absolute" aria-hidden="true">
+            <defs>
+                <filter
+                    id="frost-heavy"
+                    x="-10%"
+                    y="-10%"
+                    width="120%"
+                    height="120%"
+                    color-interpolation-filters="sRGB"
+                >
+                    <feTurbulence
+                        type="fractalNoise"
+                        baseFrequency="0.015 0.015"
+                        numOctaves="3"
+                        seed="5"
+                        result="noise"
+                    />
+                    <feGaussianBlur in="noise" stdDeviation="1.5" result="blurredNoise" />
+                    <feDisplacementMap
+                        in="SourceGraphic"
+                        in2="blurredNoise"
+                        scale="8"
+                        xChannelSelector="R"
+                        yChannelSelector="G"
+                    />
+                </filter>
+                <filter
+                    id="frost-light"
+                    x="-10%"
+                    y="-10%"
+                    width="120%"
+                    height="120%"
+                    color-interpolation-filters="sRGB"
+                >
+                    <feTurbulence
+                        type="turbulence"
+                        baseFrequency="0.008 0.008"
+                        numOctaves="2"
+                        seed="12"
+                        result="noise"
+                    />
+                    <feGaussianBlur in="noise" stdDeviation="3" result="blurredNoise" />
+                    <feDisplacementMap
+                        in="SourceGraphic"
+                        in2="blurredNoise"
+                        scale="4"
+                        xChannelSelector="R"
+                        yChannelSelector="G"
+                    />
+                </filter>
+            </defs>
+        </svg>
         <div id="app" class="launcher-window"></div>
         <script type="module" src="js/app.js"></script>
     </body>

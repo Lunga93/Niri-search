@@ -20,6 +20,7 @@ import * as levels from './levels.js';
 import * as smoothcaret from './components/smoothcaret.js';
 import * as platform from './platform.js';
 import * as motion from './motion.js';
+import * as lantern from './lantern.js';
 import * as aiAnswer from './components/ai-answer.js';
 import { State as AiState } from './components/ai-answer.js';
 import * as aiCard from './components/ai-answer-card.js';
@@ -183,6 +184,19 @@ document.addEventListener('DOMContentLoaded', async () => {
         leftFooter: document.getElementById('results-footer'),
         rightFooter: previewFooter,
     });
+
+    // Frost glass overlays (frost.css): grain below the content, lantern
+    // pool above it. Prepended so template loads append after them; paint
+    // order comes from their explicit z-index, not DOM order. Floating
+    // tiles carry their own (CSS hides these there).
+    for (const cls of ['frost-noise', 'lantern-glow']) {
+        const el = document.createElement('div');
+        el.className = cls;
+        el.setAttribute('aria-hidden', 'true');
+        app.prepend(el);
+    }
+    lantern.init(app);
+    if (platform.prefersReducedMotion()) lantern.setEnabled(false);
 
     // Todo quick view: when today has tasks, the last main-hint item
     // ("Ctrl+H: Help") is swapped for a clickable "Todo X/Y" stat with an

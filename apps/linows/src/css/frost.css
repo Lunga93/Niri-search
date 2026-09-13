@@ -1,0 +1,319 @@
+/* Frost glass + lantern hover.
+ *
+ * Plain backdrop-filter blur averages pixels into uniform milkiness. Real
+ * frosted glass is etched: microscopic grain that scatters light, plus
+ * organic warping that bends it. This file adds both, in two render paths:
+ *
+ *   Classic (framed panel): two global divs inside #app (.frost-noise below
+ *   the content, .lantern-glow above it). The window is one surface, so one
+ *   overlay each is enough.
+ *
+ *   Floating (bar-free): the window is mostly transparent gaps, so global
+ *   divs would grain the bare desktop. Instead each .pane-tile carries its
+ *   own grain (::after) and its own lantern (background layer, positioned
+ *   with --lantern-px minus the tile origin layout.js already tracks).
+ *
+ * Dark themes get heavy frost (visible grain, strong displacement); light
+ * themes get clear glass (faint grain, gentle bending). The branch is
+ * data-theme-dark, set by platform.applyFrostTheme(). Liquid keeps its rim
+ * and skips the grain: clear glass, not frost. */
+
+.launcher-window > .frost-noise,
+.launcher-window > .lantern-glow {
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+}
+
+/* --- Grain overlay (classic) -------------------------------------------
+ * White noise tile, overlay-blended so mid-gray alpha is neutral and the
+ * specks brighten/darken around it. Below the content (crisp text), above
+ * the background image. */
+.launcher-window > .frost-noise {
+    z-index: 0;
+    background-image: url('../assets/frost-noise.png');
+    background-size: 256px 256px;
+    background-repeat: repeat;
+    opacity: var(--frost-noise-opacity, 0.06);
+    mix-blend-mode: overlay;
+}
+
+/* --- Lantern pool (classic) ----------------------------------------------
+ * A small pool of light around the cursor. Dark themes: soft-light lift
+ * that brightens the frost. The noise mask melts with it, so the frost
+ * visibly clears where the light shines. */
+.launcher-window > .lantern-glow {
+    z-index: 3;
+    opacity: var(--lantern-active, 0);
+    background: radial-gradient(
+        circle var(--lantern-size, 160px) at var(--lantern-x, 50%) var(--lantern-y, 50%),
+        rgba(var(--lift), 0.15) 0%,
+        transparent 100%
+    );
+    mix-blend-mode: soft-light;
+    transition: opacity 0.3s ease;
+}
+
+/* Frost melts near the lantern: the grain fades to a clear spot. */
+[data-theme-dark="true"] .launcher-window > .frost-noise {
+    -webkit-mask-image: radial-gradient(
+        circle var(--lantern-size, 160px) at var(--lantern-x, 50%) var(--lantern-y, 50%),
+        transparent 20%,
+        black 100%
+    );
+    mask-image: radial-gradient(
+        circle var(--lantern-size, 160px) at var(--lantern-x, 50%) var(--lantern-y, 50%),
+        transparent 20%,
+        black 100%
+    );
+}
+
+/* Light themes: tight specular over a wide soft shadow, the light catching
+ * curved glass rather than a wash over it. */
+[data-theme-dark="false"] .launcher-window > .lantern-glow {
+    background:
+        radial-gradient(
+            circle calc(var(--lantern-size, 160px) * 0.4) at var(--lantern-x, 50%)
+                var(--lantern-y, 50%),
+            rgba(255, 255, 255, 0.12) 0%,
+            transparent 100%
+        ),
+        radial-gradient(
+            circle var(--lantern-size, 160px) at var(--lantern-x, 50%) var(--lantern-y, 50%),
+            rgba(var(--scrim), 0.04) 0%,
+            transparent 100%
+        );
+    mix-blend-mode: normal;
+}
+
+/* --- Floating tiles ------------------------------------------------------
+ * Global divs off: they would grain and light the transparent gaps too,
+ * washing the bare desktop. Tiles carry their own instead.
+ *
+ * Tile frost faces (floating, non-liquid): the face is a translucent wash
+ * of the theme tint (color-mix against --bg-tint, preset via
+ * --tile-fill-alpha) over backdrop blur, so the lantern and the grain read
+ * through the tile instead of sitting on an opaque card. The rim is inset
+ * box-shadow on the tile itself (::after belongs to the grain, and element
+ * opacity would crush a rim painted there); the sheen rides as a background
+ * layer under the lantern. */
+
+.launcher-window.bar-free > .frost-noise,
+.launcher-window.bar-free > .lantern-glow {
+    display: none;
+}
+
+/* Per-tile grain. ::after is free here (liquid.css owns it only under
+ * data-surface="liquid", and liquid skips the grain: clear glass). z-index
+ * -1 keeps it above the tile fill and below the content. isolation on the
+ * tile (layout.css) holds it inside. */
+html:not([data-surface="liquid"]) .bar-free .pane-tile::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: var(--tile-radius);
+    pointer-events: none;
+    background-image: url('../assets/frost-noise.png');
+    background-size: 256px 256px;
+    background-repeat: repeat;
+    opacity: var(--tile-grain-opacity, 0.06);
+    mix-blend-mode: overlay;
+}
+
+/* Per-tile lantern + sheen over a translucent fill. Parked offscreen until
+ * the first mousemove. Under the content, so text stays crisp. The scrim is
+ * the milky half of the glass: lantern + sheen alone are too clear to seat
+ * text, the tint alone is flat color. All three together read as frost. */
+html:not([data-surface="liquid"]) .bar-free .pane-tile {
+    background-image:
+        radial-gradient(
+            circle var(--lantern-size, 160px) at calc(var(--lantern-px-x, -9999) * 1px - var(--tile-ox, 0px))
+                calc(var(--lantern-px-y, -9999) * 1px - var(--tile-oy, 0px)),
+            rgba(var(--lift), var(--lantern-tile-alpha, 0.1)) 0%,
+            transparent 70%
+        ),
+        linear-gradient(180deg, var(--glass-sheen), transparent var(--glass-sheen-depth)),
+        linear-gradient(
+            rgba(var(--scrim), var(--tile-scrim-alpha, 0.22)),
+            rgba(var(--scrim), var(--tile-scrim-alpha, 0.22))
+        );
+    background-color: color-mix(in srgb, var(--bg-tint) var(--tile-fill-alpha, 48%), transparent);
+    backdrop-filter: blur(var(--tile-blur, 20px));
+    -webkit-backdrop-filter: blur(var(--tile-blur, 20px));
+    box-shadow:
+        inset 0 1px 0 var(--glass-rim),
+        inset 0 0 0 1px var(--glass-rim-base),
+        inset 0 -1px 0 var(--glass-rim-soft),
+        0 3px 7px rgba(var(--shadow), 0.25);
+}
+
+/* --- Launchpad tiles -----------------------------------------------------
+ * Same frost face as the pane tiles (origins from layout.js), plus their
+ * own grain on ::after (free in non-liquid floating mode). Layering
+ * contract: lantern, sheen, then the translucent fill underneath. The
+ * :hover border feedback and press transform from superactions.css are
+ * untouched: this rule sets no border-color. */
+html:not([data-surface="liquid"]) .bar-free .ctl-tile {
+    background-image:
+        radial-gradient(
+            circle var(--lantern-size, 160px) at calc(var(--lantern-px-x, -9999) * 1px - var(--tile-ox, 0px))
+                calc(var(--lantern-px-y, -9999) * 1px - var(--tile-oy, 0px)),
+            rgba(var(--lift), 0.12) 0%,
+            transparent 70%
+        ),
+        linear-gradient(180deg, var(--glass-sheen), transparent var(--glass-sheen-depth)),
+        linear-gradient(
+            rgba(var(--scrim), var(--tile-scrim-alpha, 0.22)),
+            rgba(var(--scrim), var(--tile-scrim-alpha, 0.22))
+        );
+    background-color: color-mix(in srgb, var(--bg-tint) var(--tile-fill-alpha, 48%), transparent);
+    backdrop-filter: blur(var(--tile-blur, 20px));
+    -webkit-backdrop-filter: blur(var(--tile-blur, 20px));
+    box-shadow:
+        inset 0 1px 0 var(--glass-rim),
+        inset 0 0 0 1px var(--glass-rim-base),
+        inset 0 -1px 0 var(--glass-rim-soft),
+        0 3px 7px rgba(var(--shadow), 0.22);
+}
+
+html:not([data-surface="liquid"]) .bar-free .ctl-tile::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: var(--tile-radius);
+    pointer-events: none;
+    background-image: url('../assets/frost-noise.png');
+    background-size: 256px 256px;
+    background-repeat: repeat;
+    opacity: var(--tile-grain-opacity, 0.06);
+    mix-blend-mode: overlay;
+}
+
+html:not([data-surface="liquid"]) .bar-free .ctl-tile.is-active {
+    background-image:
+        radial-gradient(
+            circle var(--lantern-size, 160px) at calc(var(--lantern-px-x, -9999) * 1px - var(--tile-ox, 0px))
+                calc(var(--lantern-px-y, -9999) * 1px - var(--tile-oy, 0px)),
+            rgba(var(--lift), 0.12) 0%,
+            transparent 70%
+        ),
+        linear-gradient(
+            color-mix(in srgb, var(--accent-color) 18%, transparent),
+            color-mix(in srgb, var(--accent-color) 18%, transparent)
+        ),
+        linear-gradient(180deg, var(--glass-sheen), transparent var(--glass-sheen-depth)),
+        linear-gradient(
+            rgba(var(--scrim), var(--tile-scrim-alpha, 0.22)),
+            rgba(var(--scrim), var(--tile-scrim-alpha, 0.22))
+        );
+}
+
+/* Armed destructive confirm keeps its red wash on glass too. */
+html:not([data-surface="liquid"]) .bar-free .ctl-tile--action.is-confirming {
+    background-image:
+        radial-gradient(
+            circle var(--lantern-size, 160px) at calc(var(--lantern-px-x, -9999) * 1px - var(--tile-ox, 0px))
+                calc(var(--lantern-px-y, -9999) * 1px - var(--tile-oy, 0px)),
+            rgba(var(--lift), 0.12) 0%,
+            transparent 70%
+        ),
+        linear-gradient(
+            color-mix(in srgb, var(--color-danger) 20%, transparent),
+            color-mix(in srgb, var(--color-danger) 20%, transparent)
+        ),
+        linear-gradient(180deg, var(--glass-sheen), transparent var(--glass-sheen-depth)),
+        linear-gradient(
+            rgba(var(--scrim), var(--tile-scrim-alpha, 0.22)),
+            rgba(var(--scrim), var(--tile-scrim-alpha, 0.22))
+        );
+}
+
+/* Bright backdrops eat the lantern: lift the tile glow where the screen
+ * behind is light, so the pool stays visible on paper and pale walls. */
+html[data-wallpaper-lum^="0.7"],
+html[data-wallpaper-lum^="0.8"],
+html[data-wallpaper-lum^="0.9"],
+html[data-wallpaper-lum="1"],
+html[data-wallpaper-lum^="1."] {
+    --lantern-tile-alpha: 0.15;
+}
+
+/* --- Wide-panel depth ------------------------------------------------------
+ * Same frost, different scale: the narrow search bar reads as crisp glass,
+ * but the tall results/preview columns read as a flat grey wall. They get a
+ * deeper local fill (more body for the row text, inherits into the pill
+ * too) and a more present wallpaper slice (texture breaks the milk). The
+ * search bar keeps the base 48% / 0.62 untouched. Scoped by ID so launchpad
+ * tiles and future panes are unaffected. */
+html:not([data-surface="liquid"]) .bar-free #results-col,
+html:not([data-surface="liquid"]) .bar-free #preview-col {
+    --tile-fill-alpha: 56%;
+}
+
+html:not([data-surface="liquid"]) .bar-free #results-col::before,
+html:not([data-surface="liquid"]) .bar-free #preview-col::before {
+    opacity: 0.5;
+}
+
+/* --- Background displacement -----------------------------------------------
+ * SVG turbulence warps what is behind the glass: the user's --bg-image when
+ * set, else the --screen-capture (grim snapshot of the screen behind the
+ * window, published by platform.js). That is the light-bending half of
+ * frost. filter:url() works on WebKitGTK (unlike backdrop-filter:url(),
+ * see WebKit bug 245510) because ::before is a plain element, not a
+ * backdrop. Chained after the existing image blur. With neither source
+ * there is nothing to displace: harmless no-op. */
+
+[data-theme-dark="true"] .launcher-window::before {
+    filter: blur(var(--bg-image-blur, 10px)) url(#frost-heavy);
+}
+
+[data-theme-dark="false"] .launcher-window::before {
+    filter: blur(var(--bg-image-blur, 10px)) url(#frost-light);
+}
+
+[data-theme-dark="true"] .bar-free .pane-tile::before {
+    filter: blur(var(--bg-image-blur, 10px)) url(#frost-heavy);
+}
+
+[data-theme-dark="false"] .bar-free .pane-tile::before {
+    filter: blur(var(--bg-image-blur, 10px)) url(#frost-light);
+}
+
+/* --- Guards ----------------------------------------------------------------
+ * Reduced motion: no following light. Blur-disabled environments (VM,
+ * Hyprland, Arch toggle): no frost at all, the tint fallback already
+ * covers readability. */
+@media (prefers-reduced-motion: reduce) {
+    html:not([data-os="windows"]) .launcher-window > .lantern-glow {
+        opacity: 0 !important;
+        transition: none;
+    }
+
+    html:not([data-os="windows"]) .launcher-window > .frost-noise {
+        -webkit-mask-image: none;
+        mask-image: none;
+    }
+}
+
+[data-disable-blur] .launcher-window > .frost-noise,
+[data-disable-blur] .launcher-window > .lantern-glow,
+[data-disable-blur] .launcher-window.bar-free .pane-tile::after,
+[data-disable-blur] .launcher-window.bar-free .ctl-tile::after {
+    display: none;
+}
+
+/* No tile blur either: the translucent fill alone keeps contrast. Placed
+ * after the presets (theme.css is an earlier stylesheet) so off wins. */
+html[data-disable-blur] {
+    --tile-blur: 0px;
+}
+
+/* Displacement is GPU work for no benefit without blur: drop the url(). */
+[data-disable-blur] .launcher-window::before,
+[data-disable-blur] .bar-free .pane-tile::before {
+    filter: blur(var(--bg-image-blur, 10px));
+}

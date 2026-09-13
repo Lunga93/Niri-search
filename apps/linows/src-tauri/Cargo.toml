@@ -24,6 +24,10 @@ serde_json = "1"
 notify = "6"
 open = "5"
 base64 = "0.22"
+# Wallpaper/screen-capture luminance (wallpaper.rs): decode grim's JPEG output
+# and wallpaper files (JPEG/PNG) to sample brightness. No default features -
+# only the decoders we read.
+image = { version = "0.25", default-features = false, features = ["jpeg", "png"] }
 rodio = "0.20"
 arboard = { version = "3", features = ["wayland-data-control"] }
 dirs = "6"

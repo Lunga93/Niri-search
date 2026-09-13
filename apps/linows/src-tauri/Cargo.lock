@@ -2091,6 +2091,8 @@ dependencies = [
  "num-traits",
  "png 0.18.1",
  "tiff",
+ "zune-core",
+ "zune-jpeg",
 ]
 
 [[package]]
@@ -2564,6 +2566,7 @@ dependencies = [
  "dirs",
  "futures-util",
  "gtk",
+ "image",
  "libloading 0.8.9",
  "look-answers",
  "look-calc",

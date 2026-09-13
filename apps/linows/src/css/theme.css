@@ -78,6 +78,102 @@
 
     /* Floating "inner-gap" layout (0 = classic framed panel) */
     --inner-gap: 0px;
+
+    /* Frost glass + lantern hover (frost.css). Cursor position in % (classic
+     * overlays) and unitless px (floating tiles subtract their origin). */
+    --lantern-x: 50%;
+    --lantern-y: 50%;
+    --lantern-active: 0;
+    --lantern-size: 160px;
+    --lantern-tile-alpha: 0.1;
+    --frost-noise-opacity: 0.06;
+
+    /* Tile frost glass (frost.css, floating bar-free mode only).
+     * --tile-fill-alpha is a percentage for color-mix against --bg-tint, so
+     * every theme keeps its own tint while presets only move translucency.
+     * Swap one class on <html> to try them: tile-frost-heavy /
+     * tile-frost-light / tile-frost-minimal. No class = balanced default.
+     *
+     * --tile-scrim-alpha is the milky readability scrim over the tile faces
+     * (and the selection pill). Its default is overridden per screen-behind
+     * brightness below (data-wallpaper-lum, published by platform.js from
+     * the Rust sampler): dark backdrops need more scrim for text to survive,
+     * bright ones need less. --scrim follows the theme polarity (black on
+     * dark, paper on Kindle), so this works in both modes. */
+    --tile-fill-alpha: 48%;
+    --tile-blur: 20px;
+    --tile-grain-opacity: 0.06;
+    --tile-scrim-alpha: 0.22;
+
+    /* Glass rim + sheen stops, shared by liquid and frost floating tiles so
+     * both surfaces match. --lift adapts them to light themes. (liquid.css
+     * repeats these under its own scope; same values.) */
+    --glass-rim: rgba(var(--lift), 0.5);
+    --glass-rim-soft: rgba(var(--lift), 0.12);
+    --glass-rim-base: rgba(var(--lift), 0.16);
+    --glass-sheen: rgba(var(--lift), 0.07);
+    --glass-sheen-depth: 34%;
+}
+
+/* Luminance-driven scrim buckets (screen-behind brightness, 0 black to 1
+ * white). Prefix match on the decimals the Rust side publishes ("0.312").
+ * Placed before the presets so an explicit preset class wins the
+ * specificity tie (both are 0,1,1; later in the file wins). */
+html[data-wallpaper-lum="0"],
+html[data-wallpaper-lum^="0.0"] {
+    --tile-scrim-alpha: 0.32;
+}
+html[data-wallpaper-lum^="0.1"] {
+    --tile-scrim-alpha: 0.29;
+}
+html[data-wallpaper-lum^="0.2"] {
+    --tile-scrim-alpha: 0.26;
+}
+html[data-wallpaper-lum^="0.3"] {
+    --tile-scrim-alpha: 0.23;
+}
+html[data-wallpaper-lum^="0.4"] {
+    --tile-scrim-alpha: 0.21;
+}
+html[data-wallpaper-lum^="0.5"] {
+    --tile-scrim-alpha: 0.19;
+}
+html[data-wallpaper-lum^="0.6"] {
+    --tile-scrim-alpha: 0.16;
+}
+html[data-wallpaper-lum^="0.7"] {
+    --tile-scrim-alpha: 0.13;
+}
+html[data-wallpaper-lum^="0.8"] {
+    --tile-scrim-alpha: 0.11;
+}
+html[data-wallpaper-lum^="0.9"],
+html[data-wallpaper-lum="1"],
+html[data-wallpaper-lum^="1."] {
+    --tile-scrim-alpha: 0.09;
+}
+
+/* Frost preset components: one class on <html> re-skins every tile. Later
+ * than the buckets above, so presets override the adaptive defaults. */
+html.tile-frost-heavy {
+    --tile-fill-alpha: 18%;
+    --tile-blur: 24px;
+    --tile-grain-opacity: 0.08;
+    --tile-scrim-alpha: 0.32;
+}
+
+html.tile-frost-light {
+    --tile-fill-alpha: 55%;
+    --tile-blur: 10px;
+    --tile-grain-opacity: 0.04;
+    --tile-scrim-alpha: 0.12;
+}
+
+html.tile-frost-minimal {
+    --tile-fill-alpha: 80%;
+    --tile-blur: 0px;
+    --tile-grain-opacity: 0;
+    --tile-scrim-alpha: 0.08;
 }
 
 /* Tokyo Night */

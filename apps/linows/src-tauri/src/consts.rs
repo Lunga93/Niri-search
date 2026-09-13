@@ -7,6 +7,11 @@ pub const EVENT_INDEX_READY: &str = "index-ready";
 /// the next summon from flashing the fully-visible strip then rewinding it (see
 /// superactions.armEntrance). Paired with the show-side `window-shown`.
 pub const EVENT_WINDOW_HIDDEN: &str = "window-hidden";
+/// Emitted when the wallpaper state file changes (and after a re-sample):
+/// the screen-behind snapshot the frost displacement warps and the
+/// luminance the tile scrim adapts to. Payload: { luminance: f32, image:
+/// string|null }.
+pub const EVENT_WALLPAPER_CHANGED: &str = "wallpaper-changed";
 
 /// Delay between starting something and trying to focus the window it opened -
 /// long enough for the app to have received the input and drawn. Used by the

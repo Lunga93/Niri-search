@@ -59,6 +59,7 @@ export function init() {
     });
     ro.observe(mainPane);
     ro.observe(document.getElementById('results-row'));
+    ro.observe(document.getElementById('control-strip'));
     for (const tile of mainPane.querySelectorAll('.pane-tile')) ro.observe(tile);
     apply();
 }
@@ -204,10 +205,16 @@ function updateTileOrigins() {
     const img = drawnImageRect(winRect);
     win.style.setProperty('--bg-draw-w', `${img.w}px`);
     win.style.setProperty('--bg-draw-h', `${img.h}px`);
-    // Queried fresh: the translate panel creates its tile lazily.
-    for (const tile of mainPane.querySelectorAll('.pane-tile')) {
+    // Queried fresh: the translate panel creates its tile lazily, and the
+    // launchpad builds its tiles on summon. Both need origins for the
+    // floating lantern layer (frost.css), same as the bg-image slices.
+    for (const tile of mainPane.querySelectorAll('.pane-tile, .ctl-tile')) {
         const r = tile.getBoundingClientRect();
         tile.style.setProperty('--tile-x', `${r.left - winRect.left - img.x}px`);
         tile.style.setProperty('--tile-y', `${r.top - winRect.top - img.y}px`);
+        // True window-relative origin (no image offset): the floating lantern
+        // layer positions from window-px cursor coords (frost.css).
+        tile.style.setProperty('--tile-ox', `${r.left - winRect.left}px`);
+        tile.style.setProperty('--tile-oy', `${r.top - winRect.top}px`);
     }
 }

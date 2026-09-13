@@ -1,4 +1,4 @@
-import { getPlatform, setWindowEffect } from './ipc.js';
+import { getPlatform, setWindowEffect, wallpaperSnapshot, onWallpaperChanged, onWindowShown } from './ipc.js';
 
 let info = null;
 
@@ -25,6 +25,7 @@ export async function init() {
     if (compositorBlur()) {
         document.documentElement.setAttribute('data-blur', 'compositor');
     }
+    initWallpaperSnapshot();
 }
 
 // True when the compositor grants behind-window blur on request. A capability,
@@ -152,4 +153,62 @@ export function getBlurStyles() {
         { value: 'balanced', label: 'Balanced', hint: 'Default translucency' },
         { value: 'soft', label: 'Soft', hint: 'Lightest, most transparent' },
     ];
+}
+
+// Frost branch: dark glass gets heavy grain + strong displacement, light
+// glass gets the clear Apple-style bend. Kindle is the only light preset;
+// anything else (including custom) reads dark.
+export function isDarkTheme() {
+    return document.documentElement.getAttribute('data-theme') !== 'kindle';
+}
+
+// Publish the branch frost.css keys off. Called from settings'
+// applyThemePreset on every theme application (switch, reset, restore), so
+// the attribute is always in step with data-theme.
+export function applyFrostTheme() {
+    document.documentElement.setAttribute('data-theme-dark', String(isDarkTheme()));
+}
+
+// Screen-behind snapshot for the adaptive frost. The grim capture feeds
+// --screen-capture (the displacement's pixels: user --bg-image wins when
+// set), the luminance feeds data-wallpaper-lum (the scrim's strength).
+// Re-sampled on every summon: apps open and close behind the window, so a
+// startup-only snapshot goes stale within a session.
+function applyWallpaperSnapshot(snapshot) {
+    if (!snapshot || typeof snapshot !== 'object') return;
+    const root = document.documentElement;
+    if (typeof snapshot.luminance === 'number') {
+        root.setAttribute('data-wallpaper-lum', String(snapshot.luminance));
+    }
+    if (typeof snapshot.image === 'string' && snapshot.image) {
+        root.style.setProperty('--screen-capture', `url("${snapshot.image}")`);
+    }
+}
+
+export async function refreshWallpaperSnapshot() {
+    try {
+        applyWallpaperSnapshot(await wallpaperSnapshot());
+    } catch {
+        // grim missing, capture failed: static tint already covers this.
+    }
+}
+
+function initWallpaperSnapshot() {
+    refreshWallpaperSnapshot();
+    try {
+        const maybeUnlisten = onWallpaperChanged((event) => {
+            applyWallpaperSnapshot(event?.payload);
+        });
+        if (maybeUnlisten && typeof maybeUnlisten.then === 'function') {
+            maybeUnlisten.catch(() => {});
+        }
+        const maybeShow = onWindowShown(() => {
+            refreshWallpaperSnapshot();
+        });
+        if (maybeShow && typeof maybeShow.then === 'function') {
+            maybeShow.catch(() => {});
+        }
+    } catch {
+        // Event bridge unavailable (unit tests, static preview).
+    }
 }

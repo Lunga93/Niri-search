@@ -66,6 +66,22 @@
     }
 }
 
+/* Frosted glass pill (floating, non-liquid): translucent like the tiles so
+ * the selection reads as a lens over the list, not a flat chip. Rows sit
+ * above the pill (z-index 1), so the blur never smears text. Carries the
+ * same scrim as the tiles: it stacks over the tile fill, and without it the
+ * selected row would wash out on bright backdrops. */
+html:not([data-surface="liquid"]) .bar-free .results-selection {
+    background-image: linear-gradient(
+        rgba(var(--scrim), var(--tile-scrim-alpha, 0.22)),
+        rgba(var(--scrim), var(--tile-scrim-alpha, 0.22))
+    );
+    background-color: color-mix(in srgb, var(--bg-tint) var(--tile-fill-alpha, 48%), transparent);
+    backdrop-filter: blur(var(--tile-blur, 20px));
+    -webkit-backdrop-filter: blur(var(--tile-blur, 20px));
+    border: 1px solid var(--glass-rim-base);
+}
+
 /* Result row */
 .result-row {
     position: relative;

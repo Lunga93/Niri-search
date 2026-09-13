@@ -201,6 +201,17 @@ export async function getPlatform() {
     return invoke('get_platform');
 }
 
+// Screen-behind snapshot for the adaptive frost: grim capture of the window
+// region (data URL for the displacement to warp) plus its average luminance
+// (0 black, 1 white) for the tile scrim. { luminance, image|null }.
+export async function wallpaperSnapshot() {
+    return invoke('wallpaper_snapshot');
+}
+
+export async function onWallpaperChanged(callback) {
+    return listen('wallpaper-changed', callback);
+}
+
 // Blur region in window-local logical pixels (see platform/linux/blur.rs).
 export async function setBlurRegion(rects) {
     return invoke('set_blur_region', { rects });
