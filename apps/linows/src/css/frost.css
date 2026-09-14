@@ -247,15 +247,27 @@ html[data-wallpaper-lum^="1."] {
  * deeper local fill (more body for the row text, inherits into the pill
  * too) and a more present wallpaper slice (texture breaks the milk). The
  * search bar keeps the base 48% / 0.62 untouched. Scoped by ID so launchpad
- * tiles and future panes are unaffected. */
+ * tiles and future panes are unaffected.
+ *
+ * MODE DISCOVERY (2026-09-14): none of the tuning below ever rendered.
+ * bar-free needs innerGap > 0 (floating) or an empty query (resting);
+ * config.dev had no inner_gap key, so the window ran classic while typing
+ * and every bar-free rule — frost faces, cards, canary — was dead code.
+ * The "amazing bar" was classic styling all along. inner_gap=12 restores
+ * floating; the ladder below renders for the first time. Tune from what
+ * is SEEN now, not from this log.
+ *
+ * Fallback recorded and rejected: per-row fill with the pill kept would
+ * hide the pill (rows are z-index 1, pill is z-index 0), so the pill is
+ * retired in bar-free (results.css) and selection lives on .selected. */
 html:not([data-surface="liquid"]) .bar-free #results-col,
 html:not([data-surface="liquid"]) .bar-free #preview-col {
-    --tile-fill-alpha: 56%;
+    --tile-fill-alpha: 45%;
 }
 
 html:not([data-surface="liquid"]) .bar-free #results-col::before,
 html:not([data-surface="liquid"]) .bar-free #preview-col::before {
-    opacity: 0.5;
+    opacity: 0.35;
 }
 
 /* --- Background displacement -----------------------------------------------

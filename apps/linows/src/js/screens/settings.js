@@ -113,6 +113,29 @@ const CSS_MAP = {
     inner_gap: (v) => layout.setInnerGap(parseFloat(v)),
 };
 
+// Whether the theme currently follows the OS color-scheme: true only while
+// no explicit ui_theme is stored (absent key — even '' means "chose the
+// default dark"). Any dropdown pick or slider nudge pins the theme and stops
+// following (see dropdown handler, slider saver).
+let followingOsTheme = false;
+
+// Resolve the effective theme for restore/reload: an explicit ui_theme wins,
+// an absent key follows the OS (kindle on light, default dark otherwise).
+function resolveTheme(map) {
+    followingOsTheme = map.ui_theme === undefined;
+    if (!followingOsTheme) return map.ui_theme || '';
+    return platform.osThemeIsLight() ? 'kindle' : '';
+}
+
+// Keep the theme dropdown label honest while following the OS: without it
+// the label would show a stale preset while the window wears another.
+function syncThemeLabel(themeId) {
+    const dd = document.getElementById('settings-theme');
+    const item = dd?.querySelector(`.settings-dropdown-item[data-value="${themeId}"]`);
+    const label = dd?.querySelector('.settings-dropdown-label');
+    if (item && label) label.textContent = item.textContent;
+}
+
 function markCustomTheme() {
     const dd = document.getElementById('settings-theme');
     const menu = dd.querySelector('.settings-dropdown-menu');
@@ -135,6 +158,21 @@ export function setOnConfigReload(fn) {
 export function init(exitFn) {
     onExit = exitFn;
     screen = document.getElementById('settings-screen');
+
+    // Follow the OS color-scheme while no explicit theme is stored; any
+    // later pick or nudge flips followingOsTheme off (see above).
+    // Callback receives a plain boolean (backend payload and matchMedia
+    // both normalize in platform.js).
+    try {
+        platform.onOsThemeChanged((light) => {
+            if (!followingOsTheme) return;
+            const theme = light ? 'kindle' : '';
+            applyThemePreset(theme);
+            syncThemeLabel(theme);
+        });
+    } catch {
+        // Event bridge unavailable: theme stays however restore left it.
+    }
 
     // Tab clicks
     document.getElementById('settings-tabs').addEventListener('click', (e) => {
@@ -160,6 +198,7 @@ export function init(exitFn) {
         item.classList.add('settings-dropdown-active');
         themeMenu.hidden = true;
         const overrides = switchOverrides(theme);
+        followingOsTheme = false;
         applyThemePreset(theme, overrides);
         saveConfig({ ui_theme: theme, [SURFACE_KEY]: surfaceToPersist(theme), ...overrides });
     });
@@ -251,6 +290,7 @@ export function init(exitFn) {
             const updates = { [key]: slider.value };
             if (THEME_KEYS.has(key)) {
                 markCustomTheme();
+                followingOsTheme = false;
                 updates.ui_theme = 'custom';
             }
             saveConfig(updates);
@@ -646,8 +686,9 @@ export async function reloadFromFile() {
 
         // Theme
         hydrateUserSliders(map);
-        const theme = map.ui_theme || '';
+        const theme = resolveTheme(map);
         applyThemePreset(theme);
+        if (followingOsTheme) syncThemeLabel(theme);
         restoreSurface(map, theme);
         if (theme === 'custom') {
             applyTintFromMap(map);
@@ -746,9 +787,11 @@ export async function restoreOnStartup() {
 
         hydrateUserSliders(map);
 
-        // Restore theme preset - preset values drive tint/font/border
-        const theme = map.ui_theme || '';
+        // Restore theme preset - preset values drive tint/font/border.
+        // No stored ui_theme: follow the OS color-scheme instead.
+        const theme = resolveTheme(map);
         applyThemePreset(theme);
+        if (followingOsTheme) syncThemeLabel(theme);
         restoreSurface(map, theme);
 
         // "custom" theme: restore individual overrides from config
@@ -1119,15 +1162,20 @@ function surfaceForTheme(themeId) {
     return THEME_SURFACES[themeId] || '';
 }
 
+// Single source of truth for the surface: applySurface is the sole writer
+// of the DOM attribute, so persist reads this, never the DOM. Reading the
+// attribute at save time coupled persistence to whatever the DOM happened
+// to hold (including nothing, on a save-before-apply boot path).
+let currentSurface = '';
+
 // "Custom" means "keep the values I have", and the surface is one of them.
 function surfaceToPersist(themeId) {
-    return themeId === 'custom'
-        ? (document.documentElement.getAttribute('data-surface') ?? '')
-        : surfaceForTheme(themeId);
+    return themeId === 'custom' ? currentSurface : surfaceForTheme(themeId);
 }
 
 function applySurface(surface) {
-    if (surface) document.documentElement.setAttribute('data-surface', surface);
+    currentSurface = surface || '';
+    if (currentSurface) document.documentElement.setAttribute('data-surface', currentSurface);
     else document.documentElement.removeAttribute('data-surface');
 }
 

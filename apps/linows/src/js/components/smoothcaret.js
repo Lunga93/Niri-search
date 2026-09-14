@@ -11,6 +11,8 @@
 // Each input gets its own caret + mirror, keyed in `attached`. Only the focused
 // input's caret is visible, so several can be wired without them clashing.
 
+import * as perf from '../perf.js';
+
 const attached = new Map();
 
 // While the caret is moving it stays solid; it resumes blinking once typing
@@ -66,6 +68,7 @@ export function refresh(input) {
 
 // Reposition the caret to the current cursor offset for one attached input.
 function place(input, state) {
+    perf.mark('caret-start');
     const { caret, mirror } = state;
 
     // The visual caret sits at the active end of the selection: selectionStart
@@ -90,4 +93,5 @@ function place(input, state) {
     caret.classList.add('is-typing');
     clearTimeout(state.idleTimer);
     state.idleTimer = setTimeout(() => caret.classList.remove('is-typing'), BLINK_RESUME_MS);
+    perf.mark('caret-end');
 }

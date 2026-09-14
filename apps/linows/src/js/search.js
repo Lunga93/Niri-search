@@ -21,8 +21,14 @@ import {
     WEB_URL_RECENT_SUBTITLE,
 } from './catalog.js';
 import * as layout from './layout.js';
+import * as perf from './perf.js';
 
 const DEBOUNCE_MS = 70;
+// Web suggestions ride DuckDuckGo over the network (500ms-2s, unbounded):
+// firing them per keystroke floods in-flight requests whose responses all
+// deserialize on the main thread. They wait for a typing pause instead;
+// the engine confirmation paints first, suggestions reconcile below it.
+const WEB_PAUSE_MS = 300;
 const MIN_QUICK_FOLDER_PREFIX = 2;
 const SEARCH_LIMIT = 40;
 const WEB_SUGGESTIONS_LIMIT = 6;
@@ -229,6 +235,12 @@ export function handleQueryInput(query) {
     // empty list. Skip web suggestions entirely for prefixed queries
     // (a"chrome, f"doc, r"regex ...). The engine handles those as scoped
     // filters; Google-autocomplete rows would be noise.
+    // Optimistic echo: answer this keystroke instantly from the last
+    // engine payload (substring filter, microseconds) instead of waiting
+    // out the debounce + IPC round trip. The backend confirmation
+    // reconciles when it lands; the version gate drops anything this
+    // keystroke supersedes, so a fast typist never sees a stale paint win.
+    optimisticEcho(query);
     const prefixed = isPrefixedQuery(query);
     const wantsWeb =
         aiEnabled && !prefixed && query.trim().length >= MIN_WEB_SUGGESTION_QUERY_LENGTH;
@@ -246,8 +258,23 @@ export function handleQueryInput(query) {
         if (wantsUrlRows) fetchUrlRows(query, myVersion);
     }, DEBOUNCE_MS);
     if (wantsWeb) {
-        webSuggestionTimer = setTimeout(() => fetchWebSuggestions(query, myVersion), DEBOUNCE_MS);
+        webSuggestionTimer = setTimeout(() => fetchWebSuggestions(query, myVersion), WEB_PAUSE_MS);
     }
+}
+
+// Best-effort instant answer from the last painted engine payload. Only
+// fires when the filter actually matches (never flashes "No results");
+// the debounced backend confirmation replaces this view when it lands.
+function optimisticEcho(query) {
+    if (!onResultsCallback || lastEnginePayload.length === 0) return;
+    const q = query.toLowerCase().trim();
+    if (q.length === 0) return;
+    const filtered = lastEnginePayload.filter((r) =>
+        (r.title || '').toLowerCase().includes(q),
+    );
+    if (filtered.length === 0) return;
+    perf.mark('optimistic', query);
+    onResultsCallback(filtered, query);
 }
 
 // A fetch is "stale" when handleQueryInput has bumped queryVersion since
@@ -258,8 +285,10 @@ function isStale(version) {
 }
 
 async function performSearch(query, version) {
+    perf.mark('search-start', query);
     try {
         const payload = await ipcSearch(query, SEARCH_LIMIT);
+        perf.mark('ipc-end', query);
         if (isStale(version)) return;
         lastEnginePayload = recentMode
             ? payload.results
@@ -270,6 +299,7 @@ async function performSearch(query, version) {
         lastEnginePayload = [];
     }
     publish(query, version);
+    perf.mark('published', query);
 }
 
 async function fetchWebSuggestions(query, version) {
@@ -363,6 +393,7 @@ function mergeByScore(local, recents) {
 
 function publish(query, version) {
     if (isStale(version) || !onResultsCallback) return;
+    perf.mark('publish-start', query);
     const suggestionRows =
         aiEnabled && lastWebSuggestions.length ? webSuggestionResults(lastWebSuggestions) : [];
     // Recent URLs interleave with engine results by frecency, deduped against

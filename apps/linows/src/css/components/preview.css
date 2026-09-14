@@ -836,3 +836,17 @@
 .action-menu-row.is-focused .action-menu-key {
     color: var(--font-secondary);
 }
+
+/* --- Option C: sub-panel rims (floating, non-liquid) -----------------------
+ * .preview-code, .preview-folder-list, .preview-clip-card and .qaction-row
+ * wear flat --control-fill, which stacks another matte grey onto the panel.
+ * Their fills stay (classic mode shares them); a glass rim is enough to
+ * separate them from the row cards beside them. Inset shadow, not border,
+ * so radii and layout are untouched. */
+html:not([data-surface="liquid"]) .bar-free .preview-code,
+html:not([data-surface="liquid"]) .bar-free .preview-folder-list,
+html:not([data-surface="liquid"]) .bar-free .preview-clip-card,
+html:not([data-surface="liquid"]) .bar-free .qaction-row,
+html:not([data-surface="liquid"]) .bar-free .preview-hint-key {
+    box-shadow: inset 0 0 0 1px var(--glass-rim-base);
+}

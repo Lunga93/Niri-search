@@ -310,3 +310,56 @@ html:not([data-surface="liquid"]) .bar-free .results-selection {
     border-radius: 999px;
     white-space: nowrap;
 }
+
+/* --- Option C: row cards (floating, non-liquid) -----------------------------
+ * Panel < card < selected; every step mixes the theme's own --bg-tint.
+ * MODE NOTE: this whole section never rendered before 2026-09-14 — the
+ * window ran classic (inner_gap unset) while typing, so bar-free rules
+ * were dead. First live render is with floating enabled; tune from that. */
+
+/* Cards need full-strength subtitles: accent at 0.8 renders grey on the
+ * card, and translucency lets the wallpaper bleed through the glyphs. */
+html:not([data-surface="liquid"]) .bar-free .result-path {
+    opacity: 1;
+}
+
+/* Icon wells: a rim separates the glyph box from the card. Inset shadow,
+ * not border, so the 22px icon box keeps its size and rows stay aligned.
+ * Real app icons (<img>, transparent well) just gain a macOS-style frame. */
+html:not([data-surface="liquid"]) .bar-free .result-icon {
+    box-shadow: inset 0 0 0 1px var(--glass-rim-base);
+}
+
+html:not([data-surface="liquid"]) .bar-free .result-row {
+    background-color: color-mix(in srgb, var(--bg-tint) 80%, transparent);
+    box-shadow: inset 0 0 0 1px var(--glass-rim-base);
+    /* No fill transition: every keystroke re-renders the list, and a
+     * restarting transition on every row is jank. Selection snaps; the
+     * keyboard gain animation (motion.css) still plays on arrows. */
+}
+
+/* Cards don't need hairlines. */
+html:not([data-surface="liquid"]) .bar-free .result-row::after {
+    display: none;
+}
+
+/* Selected row takes the pill's old recipe: tint + scrim + blur + rim.
+ * --tile-scrim-alpha still rides the luminance buckets (theme.css), so the
+ * selected row keeps its adaptive contrast on bright backdrops. */
+html:not([data-surface="liquid"]) .bar-free .result-row.selected {
+    background-image: linear-gradient(
+        rgba(var(--scrim), var(--tile-scrim-alpha, 0.22)),
+        rgba(var(--scrim), var(--tile-scrim-alpha, 0.22))
+    );
+    background-color: color-mix(in srgb, var(--bg-tint) 90%, transparent);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow:
+        inset 0 1px 0 var(--glass-rim),
+        inset 0 0 0 1px var(--glass-rim-base);
+}
+
+/* Pill retired in bar-free (see header): selection lives on .selected. */
+html:not([data-surface="liquid"]) .bar-free .results-selection {
+    display: none;
+}

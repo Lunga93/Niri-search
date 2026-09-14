@@ -19,6 +19,7 @@ import * as sourceblocks from './components/sourceblocks.js';
 import * as levels from './levels.js';
 import * as smoothcaret from './components/smoothcaret.js';
 import * as platform from './platform.js';
+import * as perf from './perf.js';
 import * as motion from './motion.js';
 import * as lantern from './lantern.js';
 import * as aiAnswer from './components/ai-answer.js';
@@ -100,6 +101,13 @@ const COMMAND_HINTS = {
 // each bullet renders through `.hint-sep` (accent color, bold) for clearer
 // visual separation between key/action pairs.
 function setHint(el, text) {
+    // Per-keystroke callers (input handler, mode switches) rewrite the same
+    // text constantly; skip identical writes so the hint spans don't churn
+    // (visible flicker + wasted layout on every keypress).
+    if (el.dataset.hint === text) return;
+    el.dataset.hint = text;
+    // A mode hint evicts the cached home hint below, so coming home re-renders.
+    delete el.dataset.mainHintKey;
     el.innerHTML = text.split(' \u2022 ').join(' <span class="hint-sep">\u2022</span> ');
 }
 const BANNER_DURATION_SHORT = 1.0;
@@ -205,36 +213,54 @@ document.addEventListener('DOMContentLoaded', async () => {
     let todoQuick = null;
 
     function renderMainHint() {
+        // Same skip as setHint, but for the whole home hint including the
+        // todo widget: without it every keystroke rebuilds the widget DOM
+        // (and a naive text-only guard would duplicate it instead, since
+        // setHint no longer wipes the old widget on a skip).
+        const text =
+            !todoQuick || todoQuick.total === 0
+                ? HINT_MAIN
+                : HINT_MAIN.slice(0, HINT_MAIN.lastIndexOf(' • '));
+        const key = todoQuick
+            ? `${text}|${todoQuick.done}/${todoQuick.total}|${(todoQuick.open || []).join('\n')}`
+            : text;
+        if (hintMessage.dataset.mainHintKey === key) return;
         if (!todoQuick || todoQuick.total === 0) {
             setHint(hintMessage, HINT_MAIN);
-            return;
-        }
-        setHint(hintMessage, HINT_MAIN.slice(0, HINT_MAIN.lastIndexOf(' • ')));
-        hintMessage.insertAdjacentHTML('beforeend', ' <span class="hint-sep">•</span> ');
-        const widget = document.createElement('span');
-        widget.className = 'hint-todo';
-        widget.innerHTML = `${listChecks} Todo <b>${todoQuick.done}/${todoQuick.total}</b>`;
-        if (todoQuick.open.length > 0) {
-            const bubble = document.createElement('div');
-            bubble.className = 'hint-todo-bubble';
-            const title = document.createElement('div');
-            title.className = 'hint-todo-bubble-title';
-            title.textContent = 'Unfinished today';
-            bubble.appendChild(title);
-            for (const name of todoQuick.open) {
-                const row = document.createElement('div');
-                row.className = 'hint-todo-bubble-task';
-                row.textContent = `• ${name}`;
-                bubble.appendChild(row);
+        } else {
+            setHint(hintMessage, HINT_MAIN.slice(0, HINT_MAIN.lastIndexOf(' • ')));
+            // setHint skips identical text (leaving the stale widget behind),
+            // so evict it explicitly before building fresh.
+            hintMessage.querySelector('.hint-todo')?.remove();
+            hintMessage.insertAdjacentHTML('beforeend', ' <span class="hint-sep">•</span> ');
+            const widget = document.createElement('span');
+            widget.className = 'hint-todo';
+            widget.innerHTML = `${listChecks} Todo <b>${todoQuick.done}/${todoQuick.total}</b>`;
+            if (todoQuick.open.length > 0) {
+                const bubble = document.createElement('div');
+                bubble.className = 'hint-todo-bubble';
+                const title = document.createElement('div');
+                title.className = 'hint-todo-bubble-title';
+                title.textContent = 'Unfinished today';
+                bubble.appendChild(title);
+                for (const name of todoQuick.open) {
+                    const row = document.createElement('div');
+                    row.className = 'hint-todo-bubble-task';
+                    row.textContent = `• ${name}`;
+                    bubble.appendChild(row);
+                }
+                widget.appendChild(bubble);
             }
-            widget.appendChild(bubble);
+            widget.addEventListener('click', () => {
+                commands.enterById('todo');
+                enterCommandMode();
+                queryInput.value = '';
+            });
+            hintMessage.appendChild(widget);
         }
-        widget.addEventListener('click', () => {
-            commands.enterById('todo');
-            enterCommandMode();
-            queryInput.value = '';
-        });
-        hintMessage.appendChild(widget);
+        // Stored after the render: setHint clears it on a real text change,
+        // so assigning here (not before) keeps guard and DOM in agreement.
+        hintMessage.dataset.mainHintKey = key;
     }
 
     function isHomeHintContext() {
@@ -348,6 +374,10 @@ document.addEventListener('DOMContentLoaded', async () => {
         smoothcaret.refresh(queryInput);
     }
 
+    // Pipeline latency probe (see perf.js): devtools access without imports.
+    window.__lookPerf = { mark: perf.mark, clear: perf.clear, trace: perf.trace, report: perf.report };
+    perf.startHeartbeat();
+
     settings.init(resetHomeQuery);
     settings.restoreOnStartup();
 
@@ -460,6 +490,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         // A level owns the list. A search that was in flight when the user
         // descended must not paint the index over it.
         if (levels.isActive()) return;
+        perf.mark('callback', query);
         lastResults = items;
         results.render(items, query);
         applyAiLayoutMode();
@@ -554,6 +585,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // differs in hint text, preview visibility and empty-state flavor.
     queryInput.addEventListener('input', (e) => {
         const value = /** @type {HTMLInputElement} */ (e.target).value;
+        perf.mark('input', value);
 
         // A level owns the result list: its rows are produced live and are not
         // in the index, so typing filters them rather than searching. No
@@ -583,7 +615,9 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (!translatePanel.isActive()) translatePanel.showPlaceholder();
             return;
         }
-        if (runningApps.isEnabled()) runningApps.refresh();
+        // Running apps don't depend on the query: the shown-handler refresh
+        // covers summon freshness, so don't IPC + re-render the strip (and
+        // its 1-9 badges) on every keystroke.
         translatePanel.hide();
 
         if (search.isClipboardMode()) {
@@ -611,6 +645,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                   : 'default';
             results.setEmptyState({ mode: empty });
         }
+        perf.mark('handler-end', value);
     });
 
     // Click on result row -> open

@@ -1,4 +1,4 @@
-import { getPlatform, setWindowEffect, wallpaperSnapshot, onWallpaperChanged, onWindowShown } from './ipc.js';
+import { getPlatform, setWindowEffect, wallpaperSnapshot, onWallpaperChanged, onWindowShown, onOsThemeChanged as onOsThemeChangedEvent } from './ipc.js';
 
 let info = null;
 
@@ -32,6 +32,35 @@ export async function init() {
 // not a setting: it only says whether Blur Opacity has real frost to act on.
 export function compositorBlur() {
     return info?.compositor_blur ?? false;
+}
+
+// System dark/light following. WebKitGTK feeds prefers-color-scheme from the
+// desktop portal (org.freedesktop.appearance color-scheme), so no backend is
+// needed: matchMedia tracks the same toggle the rest of the desktop follows.
+// Pure signal — settings.js owns the policy (follow only with no explicit
+// ui_theme; any pick or nudge pins the theme and stops following).
+const osLightMedia =
+    typeof window.matchMedia === 'function'
+        ? window.matchMedia('(prefers-color-scheme: light)')
+        : null;
+
+export function osThemeIsLight() {
+    return !!osLightMedia?.matches;
+}
+
+export function onOsThemeChanged(callback) {
+    // Backend portal watcher (primary on Linux): payload { light }.
+    // Double-apply is harmless (same value, idempotent preset apply).
+    const maybeUnlisten = onOsThemeChangedEvent((event) => {
+        const payload = event?.payload;
+        const light = typeof payload === 'boolean' ? payload : !!payload?.light;
+        callback(light);
+    });
+    if (maybeUnlisten && typeof maybeUnlisten.then === 'function') {
+        maybeUnlisten.catch(() => {});
+    }
+    // matchMedia backup for environments where WebKit tracks GTK directly.
+    osLightMedia?.addEventListener?.('change', (e) => callback(!!e.matches));
 }
 
 // True when the blur fallback is forced by the platform (VM GPU) rather than

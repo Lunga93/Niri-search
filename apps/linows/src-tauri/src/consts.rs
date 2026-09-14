@@ -12,6 +12,12 @@ pub const EVENT_WINDOW_HIDDEN: &str = "window-hidden";
 /// luminance the tile scrim adapts to. Payload: { luminance: f32, image:
 /// string|null }.
 pub const EVENT_WALLPAPER_CHANGED: &str = "wallpaper-changed";
+/// Emitted when the xdg-desktop-portal appearance color-scheme changes:
+/// the OS dark/light toggle. WebKitGTK does not deliver matchMedia change
+/// events for it, so the backend watches the portal directly (see
+/// platform::linux::os_theme). Payload: { light: bool }. The frontend
+/// applies it only while no explicit ui_theme is stored.
+pub const EVENT_OS_THEME_CHANGED: &str = "os-theme-changed";
 
 /// Delay between starting something and trying to focus the window it opened -
 /// long enough for the app to have received the input and drawn. Used by the

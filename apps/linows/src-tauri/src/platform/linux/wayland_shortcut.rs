@@ -222,9 +222,14 @@ where
             // dbus-broker). Give up after a few attempts.
             const MAX_RETRIES: u32 = 5;
             let mut last_err = None;
+            let mut succeeded = false;
             for attempt in 0..MAX_RETRIES {
-                match run_dbus_service(move || on_toggle()).await {
-                    Ok(()) => break,
+                let toggle = on_toggle.clone();
+                match run_dbus_service(move || toggle()).await {
+                    Ok(()) => {
+                        succeeded = true;
+                        break;
+                    }
                     Err(e) => {
                         if attempt + 1 < MAX_RETRIES {
                             eprintln!(
@@ -242,7 +247,10 @@ where
                 }
             }
 
-            if let Some(e) = last_err {
+            if succeeded {
+                // Clear any stale health issue from a prior failed attempt.
+                health::clear(health::ISSUE_HOTKEY);
+            } else if let Some(e) = last_err {
                 if compositor == Compositor::Kde {
                     // The KDE task toggles via the kglobalaccel signal alone;
                     // keep it alive.

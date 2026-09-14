@@ -59,6 +59,14 @@ fn now_ms() -> u64 {
         .unwrap_or(0)
 }
 
+// Perf pipeline report sink: drops the JSON report where tooling can read
+// it (Ctrl+Shift+P in the frontend). Zero-cost when unused.
+#[tauri::command]
+fn perf_report(json: String) {
+    let _ = std::fs::write("/tmp/look-perf-report.json", &json);
+    eprintln!("[look:perf] report written bytes={}", json.len());
+}
+
 fn supports_transparency() -> bool {
     #[cfg(target_os = "linux")]
     {
@@ -607,6 +615,12 @@ fn main() {
             #[cfg(target_os = "linux")]
             platform::linux::wallpaper::start_watcher(app.handle().clone());
 
+            // Portal appearance watcher: pushes `os-theme-changed` so the
+            // theme follows the OS dark/light toggle (WebKitGTK does not
+            // deliver matchMedia change events for it).
+            #[cfg(target_os = "linux")]
+            platform::linux::os_theme::start_watcher(app.handle().clone());
+
             register_shortcuts(app, use_wayland);
 
             #[cfg(debug_assertions)]
@@ -678,6 +692,8 @@ fn main() {
             commands::confirm_hide,
             commands::set_blur_region,
             commands::quit_app,
+            // Perf pipeline report sink (see perf_report above).
+            perf_report,
             // Config
             config::get_config,
             config::set_config,

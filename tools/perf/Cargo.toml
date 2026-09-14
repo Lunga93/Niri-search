@@ -9,9 +9,12 @@ description = "Perf and stress benches for look's index refresh / watcher path. 
 
 [dependencies]
 look-engine = { path = "../../core/engine" }
+look-indexing = { path = "../../core/indexing" }
 look-matching = { path = "../../core/matching" }
 look-storage = { path = "../../core/storage" }
 notify = "6"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
 
 [[bin]]
 name = "query_engine_bench"
@@ -28,3 +31,15 @@ path = "watcher_stress.rs"
 [[bin]]
 name = "real_fs_stress"
 path = "real_fs_stress.rs"
+
+[[bin]]
+name = "search_stress"
+path = "search_stress.rs"
+
+[[bin]]
+name = "ipc_stress"
+path = "ipc_stress.rs"
+
+[[bin]]
+name = "system_stress"
+path = "system_stress.rs"

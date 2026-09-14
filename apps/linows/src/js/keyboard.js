@@ -152,6 +152,17 @@ function handleKeyDown(e) {
         return;
     }
 
+    // Perf diagnostics: Ctrl+Shift+P dumps the keystroke-to-paint pipeline
+    // trace + main-thread blocks to /tmp/look-perf-report.json (see perf.js).
+    if (e.ctrlKey && (e.shiftKey || shiftHeld) && (e.key === 'P' || e.key === 'p')) {
+        e.preventDefault();
+        import('./perf.js').then((perf) => {
+            const invoke = window.__TAURI__?.core?.invoke;
+            invoke?.('perf_report', { json: JSON.stringify(perf.report()) }).catch(() => {});
+        });
+        return;
+    }
+
     // Ctrl+Shift+; reloads config from file (like Cmd+Shift+; on macOS)
     if (e.ctrlKey && (e.shiftKey || shiftHeld) && (e.key === ';' || e.key === ':')) {
         e.preventDefault();

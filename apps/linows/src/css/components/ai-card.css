@@ -183,3 +183,12 @@
     font-size: var(--font-size);
     color: var(--font-muted);
 }
+
+/* --- Option C: card rim (floating, non-liquid) -----------------------------
+ * Same story as the preview sub-panels: the --control-fill flat plus the
+ * lift-8% border reads matte against the row cards. Keep the fill, swap
+ * the border for the shared glass rim so the AI card sits in the same
+ * family. Classic mode keeps its own border above. */
+html:not([data-surface="liquid"]) .bar-free .ai-card {
+    border-color: var(--glass-rim-base);
+}

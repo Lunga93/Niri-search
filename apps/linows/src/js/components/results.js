@@ -14,6 +14,7 @@ import { getSettingsIcon as getWindowsSettingsIcon } from '../settings-icons/win
 import { classifyResultId } from '../catalog.js';
 import { prefersReducedMotion } from '../platform.js';
 import * as layout from '../layout.js';
+import * as perf from '../perf.js';
 
 // LRU-bounded icon cache (cacheKey -> data URL | null). A plain Map keeps
 // insertion order, so re-inserting on a hit marks it most-recently-used and the
@@ -122,6 +123,7 @@ export function restoreSelection(id, query) {
 }
 
 export function render(results, query = null) {
+    perf.mark('render-start', query);
     // A new query invalidates any manual cursor position.
     if (query !== lastRenderQuery) {
         lastRenderQuery = query;
@@ -145,6 +147,8 @@ export function render(results, query = null) {
     if (results.length === 0) {
         container.innerHTML = renderEmptyState();
         selectedIndex = -1;
+        perf.mark('render-end', query);
+        requestAnimationFrame(() => perf.mark('paint', query));
         return;
     }
 
@@ -178,10 +182,13 @@ export function render(results, query = null) {
         // No rows on screen. A seeded selection here is one the user cannot
         // see, and Enter / Ctrl+D / Ctrl+Shift+H would still act on it.
         selectedIndex = -1;
+        perf.mark('render-end', query);
         return;
     }
 
     select(nextIndex);
+    perf.mark('render-end', query);
+    requestAnimationFrame(() => perf.mark('paint', query));
 }
 
 export function getSelected() {

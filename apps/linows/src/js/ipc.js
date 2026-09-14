@@ -212,6 +212,12 @@ export async function onWallpaperChanged(callback) {
     return listen('wallpaper-changed', callback);
 }
 
+// OS dark/light toggle, pushed by the backend portal watcher (see
+// platform/linux/os_theme.rs). Payload: { light: bool }.
+export async function onOsThemeChanged(callback) {
+    return listen('os-theme-changed', callback);
+}
+
 // Blur region in window-local logical pixels (see platform/linux/blur.rs).
 export async function setBlurRegion(rects) {
     return invoke('set_blur_region', { rects });
