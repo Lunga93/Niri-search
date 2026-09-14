@@ -45,7 +45,10 @@ export function startHeartbeat() {
     const beat = () => {
         const now = performance.now();
         const gap = now - lastBeat;
-        if (gap > BLOCK_THRESHOLD_MS) {
+        // Hidden pages get timers throttled to ~1Hz: those ~1000ms gaps are
+        // the throttle, not main-thread work. Recording them floods the
+        // capped buffer and evicts the real typing-time blocks.
+        if (gap > BLOCK_THRESHOLD_MS && !document.hidden) {
             blocks.push({ t: Math.round(now * 10) / 10, gap: Math.round(gap * 10) / 10 });
             if (blocks.length > MAX_BLOCKS) blocks.shift();
         }

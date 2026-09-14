@@ -16,7 +16,13 @@
  * Dark themes get heavy frost (visible grain, strong displacement); light
  * themes get clear glass (faint grain, gentle bending). The branch is
  * data-theme-dark, set by platform.applyFrostTheme(). Liquid keeps its rim
- * and skips the grain: clear glass, not frost. */
+ * and skips the grain: clear glass, not frost.
+ *
+ * PERF NOTE (2026-09-14): frost-heavy (3-octave feTurbulence + scale-8
+ * displacement on 4 large surfaces) made dark-mode typing feel ~2x slower
+ * than light: every keystroke re-renders the rows, every repaint re-runs
+ * the SVG filter in software. Dark currently shares frost-light until a
+ * cheap heavy path exists; frost-heavy stays defined for A/B. */
 
 .launcher-window > .frost-noise,
 .launcher-window > .lantern-glow {
@@ -280,7 +286,9 @@ html:not([data-surface="liquid"]) .bar-free #preview-col::before {
  * there is nothing to displace: harmless no-op. */
 
 [data-theme-dark="true"] .launcher-window::before {
-    filter: blur(var(--bg-image-blur, 10px)) url(#frost-heavy);
+    /* PERF: frost-heavy here cost dark mode its typing feel (see header).
+     * Shares frost-light until a cheap heavy path exists. */
+    filter: blur(var(--bg-image-blur, 10px)) url(#frost-light);
 }
 
 [data-theme-dark="false"] .launcher-window::before {
@@ -288,7 +296,8 @@ html:not([data-surface="liquid"]) .bar-free #preview-col::before {
 }
 
 [data-theme-dark="true"] .bar-free .pane-tile::before {
-    filter: blur(var(--bg-image-blur, 10px)) url(#frost-heavy);
+    /* PERF: same as above, per tile. */
+    filter: blur(var(--bg-image-blur, 10px)) url(#frost-light);
 }
 
 [data-theme-dark="false"] .bar-free .pane-tile::before {
