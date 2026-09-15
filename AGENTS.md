@@ -14,18 +14,17 @@ This is the highest priority rule. Whenever you see it, you remove it. No except
 
 ## Project overview
 
-**Look** is a keyboard-first, local-first launcher. macOS shell is Swift/AppKit (`apps/macos/`), Linux shell is Tauri v2 with a vanilla HTML/CSS/JS frontend (`apps/linows/`). Both shells share a Rust core (`core/`). The repo root contains both platforms.
+**Niri-Search** is a keyboard-first, local-first launcher for Linux (Niri-first). One shell: Tauri v2 with a vanilla HTML/CSS/JS frontend (`apps/linows/`), linked directly against a shared Rust core (`core/`). No macOS/Windows code ships from this tree.
 
 ## Repo structure (critical paths)
 
 ```
 core/           Shared Rust workspace (12 crates)
-bridge/ffi/     C ABI bridge consumed by macOS/Windows native apps
 apps/linows/    Tauri v2 app (Linux) - Rust backend + vanilla JS frontend
-apps/macos/     Swift Xcode project (macOS)
+config/         Niri integration stanza (config/niri-search.kdl)
 tools/perf/     Standalone benchmark crate (NEVER bundled, NOT in core workspace)
 docs/           User guide, architecture, design decisions
-scripts/        Build, release, install scripts (Makefile.mac at root)
+scripts/        Build, release, install scripts (root Makefile: help/test/check/dev/build)
 ```
 
 ## Important structural gotcha
