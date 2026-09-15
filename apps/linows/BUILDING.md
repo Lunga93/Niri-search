@@ -1,6 +1,6 @@
 # Building & Packaging: linows
 
-Build instructions for the Look desktop app (Linux via Tauri v2).
+Build instructions for the Niri-Search desktop app (Linux via Tauri v2).
 
 ## Architecture support
 
@@ -76,7 +76,7 @@ not pass it by default:
 ```nix
 # flake.nix
 {
-  inputs.look.url = "github:kunkka19xx/look?dir=apps/linows";
+  inputs.look.url = "github:Lunga93/Niri-search?dir=apps/linows";
 
   outputs = { nixpkgs, home-manager, ... }@inputs: {
     homeConfigurations."me" = home-manager.lib.homeManagerConfiguration {
@@ -135,7 +135,7 @@ nixConfig = {
 Nix asks once whether to trust those settings, or pass `--accept-flake-config`.
 On NixOS the system-wide equivalent is `programs.lookapp.cachix = true` from
 `nixosModules.default`. Elsewhere, `cachix use look` or `/etc/nix/nix.conf`.
-Without one of these, Home Manager will build Look from source.
+Without one of these, Home Manager will build Niri-Search from source.
 
 `theme` accepts `catppuccin` (the default), `tokyo-night`, `rose-pine`,
 `gruvbox`, `dracula`, `kanagawa`, `kindle`, `liquid` and `custom`. Colours are
@@ -145,7 +145,7 @@ the opacity values for `kindle` and `liquid` because those two own them. Use
 
 `settings` keys map directly to `~/.look/config` keys and override values
 derived from `theme`. Lists are written as comma-separated values, except
-`ignored_patterns_*` and `alias_*`, which Look parses as pipe-separated.
+`ignored_patterns_*` and `alias_*`, which Niri-Search parses as pipe-separated.
 `aliases` is the same thing with the prefix filled in, so declaring
 `aliases.note` and `settings.alias_note` together is an error.
 
@@ -156,35 +156,44 @@ writable so the app can keep saving to it, but Nix wins again on every
 activation, so treat Nix as the source of truth for the keys it manages. The
 first activation copies the pre-Nix file to `<config>.hm-backup`.
 
-Upgrading from a Look that kept its config at `~/.look.config`: activation
-merges into whichever file Look reads, the old one until Look copies it into
+Upgrading from a Niri-Search that kept its config at `~/.look.config`: activation
+merges into whichever file Niri-Search reads, the old one until Niri-Search copies it into
 `~/.look/` on its next launch, which carries the managed keys across. Nothing
 needs doing by hand, and the old file is left where it is.
 
 ---
 
-## Building an AppImage Locally
+## Building Release Bundles Locally
 
-Release AppImages are built by CI (`release-linux.yml`) on ubuntu-22.04. To build one locally from your current working tree, for example to test a fix on Fedora or openSUSE before releasing:
-
-```bash
-scripts/linux/build-appimage.sh
-```
-
-Requires docker. The script builds a `look-appimage-builder` image (ubuntu-22.04 with the same dependency list as CI) and runs `cargo tauri build --bundles appimage` inside it. The cargo target dir and caches live in named docker volumes (`look-appimage-target`, `look-appimage-registry`, `look-appimage-cache`), so incremental rebuilds are fast and host build dirs stay untouched.
-
-Output: `dist/Look_<version>_amd64.AppImage` at the repo root (gitignored).
-
-**Why a container:** Tauri's AppImage bundler runs linuxdeploy, which is itself an AppImage and needs an FHS system. On NixOS it fails outright, and even if forced, the produced binary would embed a `/nix/store` ELF interpreter path and not run on other distros. Building on ubuntu-22.04 also pins the glibc baseline to match releases.
-
-**Running on the target machine:**
+Release bundles are built by CI (`.github/workflows/release-linux.yml`):
+`.deb` on ubuntu-24.04, `.rpm` in a Fedora 41 container. To build one
+locally from your current working tree, for example to test a fix on
+Fedora before releasing:
 
 ```bash
-chmod +x Look_*.AppImage
-./Look_*.AppImage
+# .deb (Debian/Ubuntu host with the dev dependencies installed)
+cd apps/linows
+cargo tauri build --bundles deb
+# Output: src-tauri/target/release/bundle/deb/niri-search_*_amd64.deb
+
+# .rpm (any host with docker: same dependency list as CI, Fedora 41)
+docker run --rm -v "$PWD:/work" -w /work/apps/linows fedora:41 bash -c '
+  dnf install -y gcc pkg-config openssl-devel gtk3-devel webkit2gtk4.1-devel \
+    libsoup3-devel glib2-devel cairo-devel pango-devel gdk-pixbuf2-devel \
+    harfbuzz-devel dbus-devel alsa-lib-devel librsvg2-devel \
+    libappindicator-gtk3-devel curl git &&
+  curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y &&
+  source "$HOME/.cargo/env" &&
+  cargo install tauri-cli --version "^2" --locked &&
+  cargo tauri build --bundles rpm'
+# Output: src-tauri/target/release/bundle/rpm/niri-search-*.rpm
 ```
 
-If FUSE is missing, run with `--appimage-extract-and-run`, or install it (Fedora: `sudo dnf install fuse fuse-libs`).
+**Why a container for rpm:** rpm filenames, compression, and dependency
+names are Fedora conventions; building inside Fedora guarantees the
+published `.rpm` installs cleanly with `dnf`. The `.deb` builds natively
+because `dpkg-deb` output is distro-independent enough at these
+dependency names.
 
 ---
 
@@ -217,22 +226,43 @@ Prebuilt packages are published on every tagged release. To build from source in
 
 **Status:** Available now.
 
-Download `Look_<version>_amd64.deb` from GitHub Releases, then:
+Download `niri-search_<version>_amd64.deb` from GitHub Releases, then:
 
 ```bash
-sudo dpkg -i Look_*.deb
+sudo dpkg -i niri-search_*.deb
 sudo apt-get install -f   # pull in any missing runtime deps
 ```
 
-Built by CI (`.github/workflows/release-linux.yml`) alongside the AppImage.
+Built by CI (`.github/workflows/release-linux.yml`) alongside the .rpm.
 
-### Arch Linux (AUR)
+### Fedora / RHEL / openSUSE (.rpm)
 
 **Status:** Available now.
 
+Download `niri-search-<version>-1.x86_64.rpm` from GitHub Releases, then:
+
 ```bash
-yay -S look-bin
+# Fedora / RHEL (dnf resolves dependencies itself)
+sudo dnf install ./niri-search-*.rpm
+
+# openSUSE
+sudo zypper install ./niri-search-*.rpm
 ```
+
+Built by CI (`.github/workflows/release-linux.yml`) alongside the .deb.
+
+### Arch Linux
+
+**Status:** No native package published yet.
+
+Convert the `.deb` with debtap:
+
+```bash
+yay -S debtap && sudo debtap -u
+```
+
+then install via `scripts/linux/install-niri-search.sh`, which detects
+the debtap path automatically.
 
 ### NixOS (flake)
 
@@ -240,10 +270,10 @@ yay -S look-bin
 
 ```bash
 # Run directly
-nix run 'github:kunkka19xx/look?dir=apps/linows'
+nix run 'github:Lunga93/Niri-search?dir=apps/linows'
 
 # Install to profile
-nix profile install 'github:kunkka19xx/look?dir=apps/linows'
+nix profile install 'github:Lunga93/Niri-search?dir=apps/linows'
 
 # Build locally
 cd apps/linows
@@ -256,7 +286,7 @@ nix build .#default
 ```nix
 # flake.nix
 {
-  inputs.look.url = "github:kunkka19xx/look?dir=apps/linows";
+  inputs.look.url = "github:Lunga93/Niri-search?dir=apps/linows";
 
   outputs = { nixpkgs, look, ... }: {
     nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
@@ -288,10 +318,9 @@ environment.systemPackages = [ pkgs.lookapp ];
 
 For non-NixOS Nix users: `cachix use look` then `nix profile install`.
 
-> **Note:** For user-level declarative installation and configuration, use the Home Manager module described above. The NixOS module is intended for system-level configuration. Contributions to add Look to [nixpkgs](https://github.com/NixOS/nixpkgs) are welcome.
+> **Note:** For user-level declarative installation and configuration, use the Home Manager module described above. The NixOS module is intended for system-level configuration. Contributions to add Niri-Search to [nixpkgs](https://github.com/NixOS/nixpkgs) are welcome.
 
 ### AppImage (universal)
 
-**Status:** Available now.
-
-Download `Look_<version>_amd64.AppImage` from GitHub Releases, then `chmod +x && ./Look_*.AppImage`. Built by CI alongside the .deb. For local builds see [Building an AppImage Locally](#building-an-appimage-locally).
+**Status:** Dropped. Releases ship `.deb` and `.rpm` only; the AppImage
+build scripts were removed. Use your distro's native package above.

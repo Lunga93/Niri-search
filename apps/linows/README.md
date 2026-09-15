@@ -1,9 +1,9 @@
 # linows
 
-Tauri v2 desktop app for **Windows + Linux**. Vanilla HTML/CSS/JS frontend.
+Tauri v2 desktop app for **Linux**, Niri-first. Vanilla HTML/CSS/JS frontend.
 
-The macOS SwiftUI app (`apps/macos/`) is the design source of truth; this app replicates
-its look, feel, and feature set using web technologies.
+Dark, blurred, rounded, minimal: a single design language implemented once
+in web technologies across the whole app.
 
 ## Architecture
 
@@ -31,7 +31,6 @@ apps/linows/
       autostart.rs       Autostart management
       platform/          Platform-specific code
         linux/           Icons, WM detection, Wayland shortcuts, GNOME ext, compositor blur, …
-        windows/         Icons, effects, drives, known folders, …
         shared.rs        Shared platform helpers
     capabilities/
       default.json       Tauri v2 permissions (events, dialog)
@@ -55,13 +54,11 @@ apps/linows/
 
 ## Why This Exists
 
-The previous Windows app was built with WinUI3/C#. It didn't match the macOS app's look
-and feel; the UI felt inconsistent across platforms. This Tauri app replaces it with a
-web-based frontend that can look identical on Windows and Linux, using the macOS SwiftUI
-app as the single design reference.
-
-The migration is complete and the WinUI3 app has been removed; it lives on in git history
-under `apps/windows/`.
+A launcher has to feel native to the compositor it lives on. linows is
+built Niri-first: layer-shell floating tiles, D-Bus toggle, niri IPC
+focus — with GNOME, KDE, Sway, Hyprland, and i3 carried along through
+shared Wayland/X11 paths. One Rust backend, one web frontend, no
+per-desktop rewrites.
 
 ## Key Decisions
 
@@ -69,7 +66,7 @@ under `apps/windows/`.
 - Own Cargo workspace (not part of core/ workspace)
 - ES modules (`<script type="module">`), no bundler
 - CSS custom properties for theming
-- macOS design language: dark, blurred, rounded, minimal
+- Design language: dark, blurred, rounded, minimal
 - Audio playback via `rodio` (Rust); WebKitGTK's HTML5 Audio has issues on Linux
 - Folder picker via `tauri-plugin-dialog`, cross-platform native dialogs
 - Tauri v2 capabilities in `capabilities/default.json` for event/dialog permissions
@@ -79,7 +76,7 @@ under `apps/windows/`.
 | Environment   | Distro | Status   | Notes                                                   |
 | ------------- | ------ | -------- | ------------------------------------------------------- |
 | GNOME Xorg    | NixOS  | Tested   | Full support                                            |
-| GNOME Wayland | Ubuntu | Tested   | Dock icon visible while Look is open (see Known Issues) |
+| GNOME Wayland | Ubuntu | Tested   | Dock icon visible while Niri-Search is open (see Known Issues) |
 | GNOME Wayland | NixOS  | Tested   | Full support                                            |
 | GNOME Wayland | Arch   | Tested   | Full support                                            |
 | i3 X11        | NixOS  | Tested   | No system settings entries                              |
@@ -137,14 +134,14 @@ cargo tauri build --bundles deb    # build .deb package
 
 ```bash
 nix develop --command cargo tauri build --bundles deb
-# Output: src-tauri/target/release/bundle/deb/Look_*.deb
+# Output: src-tauri/target/release/bundle/deb/Niri-Search_*.deb
 ```
 
 **Get VM IP** (on the VM):
 
 ```bash
 ip addr | grep inet
-# Look for 192.168.122.x on enp1s0
+# Niri-Search for 192.168.122.x on enp1s0
 ```
 
 **Prerequisites on VM** (first time only):
@@ -156,14 +153,14 @@ sudo apt install openssh-server patchelf
 **Deploy** (from host, run as one script):
 
 ```bash
-scp -O apps/linows/src-tauri/target/release/bundle/deb/Look_*.deb kunkka@192.168.122.x:/tmp/
+scp -O apps/linows/src-tauri/target/release/bundle/deb/Niri-Search_*.deb kunkka@192.168.122.x:/tmp/
 ```
 
 **Install on VM:**
 
 ```bash
 pkill lookapp                              # stop running instance
-sudo dpkg -r look && sudo dpkg -i /tmp/Look_*.deb
+sudo dpkg -r niri-search && sudo dpkg -i /tmp/niri-search_*.deb
 sudo patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 /usr/bin/lookapp
 lookapp                                    # launch from terminal to see logs
 ```
@@ -182,9 +179,9 @@ disables hardware acceleration via the WebKitGTK API (`set_hardware_acceleration
 
 | Shortcut      | Action                  |
 | ------------- | ----------------------- |
-| Alt+Space     | Toggle Look window      |
-| Esc           | Hide Look               |
-| Alt+Shift+Q   | Quit Look               |
+| Alt+Space     | Toggle Niri-Search window      |
+| Esc           | Hide Niri-Search               |
+| Alt+Shift+Q   | Quit Niri-Search               |
 | Tab/Shift+Tab | Navigate results        |
 | Enter         | Open selected           |
 | Ctrl+Enter    | Search web              |
@@ -196,17 +193,16 @@ disables hardware acceleration via the WebKitGTK API (`set_hardware_acceleration
 | Ctrl+Shift+,  | Open settings           |
 | Ctrl+Shift+;  | Reload config from file |
 | Ctrl+H        | Help screen             |
-| Ctrl+Shift+H  | Hide selected app from Look |
-| Ctrl+Shift+Enter | Run selected app as admin (Windows) |
+| Ctrl+Shift+H  | Hide selected app from Niri-Search |
 | Ctrl+D        | Remove selected clipboard entry (in `c"` mode) |
 
 **Known issues on Ubuntu:**
 
-- GNOME's default Alt+Space (window menu) is auto-disabled by Look on Wayland; restored when Look exits
-- **GNOME Wayland: dock icon visible while Look is open.** Tauri sets `skip_taskbar_hint`
+- GNOME's default Alt+Space (window menu) is auto-disabled by Niri-Search on Wayland; restored when Niri-Search exits
+- **GNOME Wayland: dock icon visible while Niri-Search is open.** Tauri sets `skip_taskbar_hint`
   asynchronously after the GTK window is mapped, so GNOME's dock ignores it. Native GTK apps
   like Ulauncher set this hint in the constructor (before mapping), which works. On X11, the
-  hint works correctly. The icon disappears when Look is hidden (Esc / Alt+Space).
+  hint works correctly. The icon disappears when Niri-Search is hidden (Esc / Alt+Space).
   **Contributions welcome**: if you know a way to set GTK hints before Tauri maps the window,
   please open a PR!
 

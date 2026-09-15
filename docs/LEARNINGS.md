@@ -1,6 +1,6 @@
-# Learnings from Look
+# Learnings from Niri-Search
 
-Patterns and techniques from Look (kunkka19xx/look) worth applying to Manatee Desktop projects.
+Patterns and techniques from Niri-Search (kunkka19xx/look) worth applying to Manatee Desktop projects.
 
 ## Architecture Patterns
 
@@ -36,7 +36,7 @@ Controls detect hardware at runtime and report `Unavailable` with a reason:
 ### 3. Layer Shell for Wayland Overlay
 **File:** `platform/linux/layer_shell.rs`
 
-Look uses `gtk-layer-shell` for Wayland overlay surfaces:
+Niri-Search uses `gtk-layer-shell` for Wayland overlay surfaces:
 - Loads library at runtime (`libloading::Library`)
 - Falls back gracefully if library not found
 - Proper keyboard focus management (exclusive vs none)
@@ -46,7 +46,7 @@ Look uses `gtk-layer-shell` for Wayland overlay surfaces:
 ### 4. D-Bus Service for IPC
 **File:** `platform/linux/wayland_shortcut.rs`
 
-Look registers a D-Bus service (`com.look.Desktop`) for toggle:
+Niri-Search registers a D-Bus service (`com.look.Desktop`) for toggle:
 - Compositor keybinding calls `gdbus call ... Toggle`
 - App registers service at startup
 - Single-instance lock prevents duplicates
@@ -58,7 +58,7 @@ Look registers a D-Bus service (`com.look.Desktop`) for toggle:
 ### 5. CSS Custom Properties for Theming
 **File:** `css/theme.css`
 
-Look uses CSS custom properties extensively:
+Niri-Search uses CSS custom properties extensively:
 - All colors defined as `--variable-name`
 - Theme switching = set `data-theme` attribute
 - Custom mode = override individual properties
@@ -144,10 +144,10 @@ Prevents multiple instances:
 
 | Pattern | From | To | Priority |
 |---------|------|----|----------|
-| SystemControl adapter | Look qactions | niri-settings sidecar | 🔴 High |
-| Hardware detection | Look qactions | Any hardware feature | 🔴 High |
-| CSS custom properties | Look theme | Quickshell Theme.qml | ✅ Already done |
-| Motion system | Look motion | Quickshell animations | 🟡 Medium |
-| Scoped refresh | Look engine | File watchers | 🟡 Medium |
-| Fuzzy scoring | Look matching | Search functionality | 🟡 Medium |
-| TOML sources | Look sources | Custom actions | 🟢 Low |
+| SystemControl adapter | Niri-Search qactions | niri-settings sidecar | 🔴 High |
+| Hardware detection | Niri-Search qactions | Any hardware feature | 🔴 High |
+| CSS custom properties | Niri-Search theme | Quickshell Theme.qml | ✅ Already done |
+| Motion system | Niri-Search motion | Quickshell animations | 🟡 Medium |
+| Scoped refresh | Niri-Search engine | File watchers | 🟡 Medium |
+| Fuzzy scoring | Niri-Search matching | Search functionality | 🟡 Medium |
+| TOML sources | Niri-Search sources | Custom actions | 🟢 Low |

@@ -1,4 +1,4 @@
-# Contributing to look
+# Contributing to Niri-Search
 
 Thanks for contributing.
 
@@ -14,7 +14,7 @@ once and the signature covers everything you send afterwards.
 ## Before you open an issue
 
 - search existing issues first to avoid duplicates
-- use a clear title with area prefix when possible (`ui:`, `engine:`, `indexing:`, `ffi:`)
+- use a clear title with area prefix when possible (`ui:`, `engine:`, `indexing:`)
 - include enough context so someone else can reproduce quickly
 
 ## Bug reports
@@ -27,9 +27,9 @@ A good bug report must include:
 - frequency (`always`, `sometimes`, `once`)
 - environment details:
   - OS + version (e.g. Ubuntu 24.04, Fedora 42)
-  - look app version or commit SHA
+  - Niri-Search app version or commit SHA
   - install method:
-    - Linux: `.deb`, AppImage, AUR, NixOS flake, or a local `cargo tauri dev` build
+    - Linux: `.deb`, `.rpm`, NixOS flake, or a local `cargo tauri dev` build
 - logs or screenshots if available
 
 If crash related, include:
@@ -61,7 +61,6 @@ Before opening a PR, run the cross-platform checks:
 
 ```bash
 cargo test --workspace --manifest-path core/Cargo.toml
-cargo test --manifest-path bridge/ffi/Cargo.toml
 ```
 
 ## Branch and PR flow
@@ -112,13 +111,11 @@ git merge origin/main
 
 ## CI behavior
 
-CI runs for pushes to `main` and for pull requests targeting `main`.
-
-- Rust jobs (`lint`, `test`, `cargo-audit`, release `build`) run only when Rust-related paths change
-- secrets scanning (`gitleaks`) always runs
-- macOS app build runs only for PRs to `main` when Swift files change
-- linows (Tauri) build runs when `apps/linows/**` or `core/**` changes
-- release-style Rust build artifacts run only on push to `main`
+CI runs the release workflow (`.github/workflows/release-linux.yml`) on
+`v*` tags and manual dispatch: core workspace tests first, then the
+`.deb` (Ubuntu) and `.rpm` (Fedora container) builds, published to
+GitHub Releases with checksums. There is no PR-gating CI; `main` stays
+releasable by convention and local checks (see Development setup).
 
 ## Pull request checklist
 

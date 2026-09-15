@@ -1,4 +1,4 @@
-# Trim Report — Look Fork for Manatee Desktop
+# Trim Report — Niri-Search Fork for Manatee Desktop
 
 ## Summary
 

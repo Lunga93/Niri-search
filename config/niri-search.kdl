@@ -1,0 +1,32 @@
+// Niri-Search integration stanza for the Niri compositor.
+//
+// Pick ONE of:
+//   1. Copy this whole file into ~/.config/niri/config.kdl (or any file it includes).
+//   2. Save it as ~/.config/niri/niri-search.kdl and add one line to config.kdl:
+//        include "~/.config/niri/niri-search.kdl"
+//   3. Run the installer with --configure-niri (appends the same stanza,
+//      backs your config up to config.kdl.bak first):
+//        install-niri-search.sh --configure-niri
+//
+// Afterwards run `niri validate`. The binary is `lookapp` and the D-Bus
+// name is `com.look.Desktop` (code identifiers, unchanged by the rebrand).
+
+// Start the background service on login. The window itself is summoned
+// with the bind below; it hides instead of quitting.
+spawn-at-startup "lookapp"
+
+binds {
+    // allow-inhibiting=false matters: without it niri passes the key to a
+    // window holding a keyboard-shortcuts inhibitor (fullscreen games,
+    // browsers, VMs all take one) and the launcher never opens over them.
+    Alt+Space allow-inhibiting=false hotkey-overlay-title="Niri-Search" { spawn "gdbus" "call" "--session" "--dest" "com.look.Desktop" "--object-path" "/com/look/Desktop" "--method" "com.look.Desktop.Toggle"; }
+}
+
+// Floating is applied at runtime over niri's IPC; this rule only adds the
+// focus-ring/shadow treatment on top.
+window-rule {
+    match app-id="^lookapp$"
+    open-floating true
+    focus-ring { off; }
+    shadow { off; }
+}

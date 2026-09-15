@@ -61,8 +61,6 @@ Search and launch executables from `$PATH` + shell history, ranked by usage.
 ## Platforms
 
 - Linux: full support (PATH + bash/zsh/fish history)
-- macOS: full support (same shells, PATH includes Homebrew dirs)
-- Windows: deferred
 
 ## Open Questions
 

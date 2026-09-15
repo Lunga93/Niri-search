@@ -1,17 +1,17 @@
 # Architecture Guide
 
-This is the canonical architecture document for `look`.
+This is the canonical architecture document for `niri-search`.
 
 It intentionally merges architecture explanation and diagrams into one place, so design decisions and Mermaid views stay in sync.
 
 ## 1) System overview and design intent
 
-`look` is a keyboard-first launcher (shipping on macOS, Windows, and Linux) designed for low-latency local search. The architecture separates UI concerns from search/index/ranking concerns (Rust), joined through a small FFI/command boundary. The UI layer is platform-specific:
+`niri-search` is a keyboard-first launcher for Linux (Niri-first) designed for low-latency local search. The architecture separates UI concerns from search/index/ranking concerns (Rust), joined through Tauri commands. One shell, one core:
 
-- **macOS:** Swift / AppKit / SwiftUI under `apps/macos/LauncherApp/` (Xcode project), talking to the Rust core via the C ABI (`bridge/ffi`).
-- **Windows + Linux:** Tauri 2 shell with a vanilla HTML/CSS/JS frontend under `apps/linows/` (`lookapp`), talking to the Rust core via Tauri commands. The macOS SwiftUI app is the design source of truth.
+- **Shell:** Tauri 2 app with a vanilla HTML/CSS/JS frontend under `apps/linows/` (binary `lookapp`), talking to the Rust core via Tauri commands. No FFI layer, no second shell.
+- **Core:** shared Rust workspace under `core/` (engine, indexing, matching, ranking, storage, answers, calc, netspeed, qactions, sources, todo, tools), linked directly as crate dependencies.
 
-Every shell talks to the same Rust core, so search, indexing, ranking, and storage behave identically across platforms.
+Every query runs the same Rust core, so search, indexing, ranking, and storage behave identically wherever the app runs.
 
 Key design goals:
 
@@ -23,16 +23,13 @@ Key design goals:
 
 ```mermaid
 flowchart LR
-    User[User keyboard input] --> Hotkey[GlobalHotKeyManager\nSupport/Launcher/ Cmd+Space]
-    Hotkey --> App[SwiftUI macOS App\nlook_appApp / AppDelegate / LauncherView]
+    User[User keyboard input] --> Hotkey[D-Bus Toggle\ncom.look.Desktop]
+    Hotkey --> App[Tauri app\nlookapp / main.rs]
+    App --> Niri[Window show\nniri IPC focus on select]
 
-    App --> Clipboard[ClipboardHistoryStore\nSupport/Launcher/ in-memory history]
-    App --> Theme[ThemeStore\n.look/config + UserDefaults]
-    App --> Bridge[EngineBridge.swift\nSupport/Launcher/]
-    App --> Services[LauncherSearchCoordinator\nLauncherTranslationService\nLauncherWindowCoordinator]
-
-    Bridge --> FFI[bridge/ffi\nC ABI]
-    FFI --> Engine[core/engine\nQueryEngine]
+    App --> Frontend[search.js\ndebounce + stale-version gate]
+    Frontend --> Invoke[Tauri invoke\nsearch / record_usage / ...]
+    Invoke --> Engine[core/engine\nQueryEngine]
     Engine --> Storage[core/storage\nSqliteStore]
     Storage --> DB[(SQLite look.db)]
 
@@ -42,7 +39,7 @@ flowchart LR
     Engine --> Sources[core/sources\n~/.look/sources blocks]
     Sources --> Shell[Login shell\nrun producers, do steps, verbs]
 
-    App --> OS[macOS APIs\nAppKit / NSWorkspace / Carbon]
+    App --> OS[Linux platform\nlayer-shell / portals / .desktop]
     OS --> User
 ```
 
@@ -50,25 +47,17 @@ flowchart LR
 
 ## 2) Module boundaries and responsibilities
 
-- `apps/macos/LauncherApp/look-app`: launcher window, keyboard input, global hotkey, action dispatch, clipboard/history mode, command mode, theme/settings UX.
-- `Support/Launcher/`: launcher-specific services and utilities:
-  - `LauncherSearchCoordinator`: debounce + async search lifecycle
-  - `LauncherTranslationService`: translation lookup
-  - `LauncherWindowCoordinator`: window/focus management
-  - `EngineBridge`: search engine communication
-  - `ClipboardHistoryStore`, `KeyboardSelectionMonitor`, `GlobalHotKeyManager`
-- `Themes/`: builtin theme presets (Catppuccin, Tokyo Night, Rose Pine, Gruvbox, Dracula, Kanagawa, Kindle, Liquid) and semantic color tokens
-- `Support/UI/`: shared UI primitives - `Motion` (all animation constants and the reveal modifiers), `ToggleSwitch`, `HoverTooltip`, `HoverBubble`
-- `bridge/ffi`: narrow C ABI surface for search, usage recording, config reload, translation, todo load/save, speed test, and error payloads.
-- `core/answers`: platform-agnostic, network-backed "web answer" lookups shared by every shell (macOS via `bridge/ffi`, Windows/Linux via Tauri commands). Instant answers (currency/weather/crypto), search suggestions, knowledge sources, and translation. Best-effort and panic-free: every entry point returns "no answer" on failure, with cheap network-free pattern-gating (`has_match`) so callers can fire speculatively while typing. No async runtime - HTTP is a blocking `curl` subprocess.
-- `core/ai`: the AI brain - one place for prompts, parsers, and precedence so they cannot drift as tiers are added. The routing ladder (`route.rs`), the planner prompt/aliases/mapping (`planner.rs`, `plan.rs`), tool resolution with the ambiguity gate, dates, previews, and undo recipes (`resolve.rs`), the `@` grammar (`explicit.rs`), the date/word lexicon and window grammar (`lexicon.rs`, `window.rs`), natural-language file recall (`files.rs`), clipboard text-ops, conversations and long-term memory (crash-safe JSON stores), markdown segmentation, and the streamed chat transport (`chat.rs`: a curl child plus a reader thread, polled by the shell - chosen because polling crosses a C ABI without an async runtime). Data-only across the boundary: JSON in, JSON out, no closures. **The AI surface is macOS-only and no linows AI is being built** (wanted on Linux/Windows? open an issue - but local inference needs hardware those machines may not have, and Linux has no unified system calendar); the crate is Rust so the logic is testable without a UI and prompts/parsers live in one place, not because a port is scheduled. See `docs/ai-architecture.md`.
+- `apps/linows/src-tauri/src/`: Tauri backend - `main.rs` (entry, plugins, D-Bus toggle service), `commands.rs` (search, open, reveal, window, quit), `state.rs` (engine cache, scoped-refresh watcher), `config.rs` (`~/.look/config` persistence), `platform/linux/` (icons, WM detection, Wayland shortcuts, compositor blur, autostart), plus feature modules (clipboard, calc, music, process, sysinfo, todo, netspeed, translate, weburl, tools, qactions).
+- `apps/linows/src/`: vanilla frontend (ES modules, no bundler) - `app.js` (main controller, input handler, optimistic echo), `search.js` (debounce + version-gated publish), `ipc.js` (Tauri invoke wrappers), `components/` (results, preview, ai-answer, running-apps, …), `screens/` (settings, commands), `css/` (CSS custom-property theming).
+- `core/answers`: network-backed "web answer" lookups (DuckDuckGo, Wikipedia, currency/weather/crypto, suggestions, translation). Best-effort and panic-free: every entry point returns "no answer" on failure, with cheap network-free pattern-gating (`has_match`) so callers can fire speculatively while typing. No async runtime - HTTP is a blocking `curl` subprocess.
+- AI on linows is web answers plus the `>` session, not a local brain: `core/answers` feeds the answer card and suggestions, and the conversation UI (`components/ai-answer*`) talks to a provider (Ollama). There is no `core/ai` crate in this tree. Apple-framework features (Calendar, Reminders, Contacts, Apple Intelligence) have no Linux counterpart and are unavailable.
 - `core/sources`: user-declared source blocks. Parsing (`def.rs`), reading the sources directory (`load.rs`), turning a block into rows (`collect.rs`, `rows.rs`), performing steps through the user's login shell with shell-escaped placeholder substitution (`run.rs`), and the block-verb-before-preferred-tool rule (`tools.rs`). Parsing and collection are pure; process execution is the shell's seam, so a `run` block's command is spawned by the shell and its rows handed back through `core/engine`'s row cache. `example.toml` is the annotated format reference, asserted against the parser by a test. See `docs/user-sources.md`.
 - `core/indexing`: candidate model and indexing helpers used by engine/storage flows.
 - `core/matching`: exact/prefix/fuzzy matching primitives.
 - `core/ranking`: ranking helpers (usage/recency-aware adjustments and score composition).
 - `core/storage`: SQLite integration, schema/migrations, candidate/usage persistence.
-- `core/todo`: shared store for the `/todo` command. Owns the `todo_tasks` table inside the app's existing `look.db` (full-set load/save, one-year retention). macOS reaches it via `bridge/ffi`, linows via its Tauri command layer. `examples/seed.rs` fills a dev database with demo history, including near-today extension-window cases for `/todo` UI testing.
-- `core/netspeed`: the `/speed` measurement, shared by every shell. A latency probe (the best of several TCP handshakes against a pre-resolved address, rather than a subtraction of two of curl's cumulative timers, whose order is not portable across curl builds), download and upload phases (four parallel `curl` streams each), and the plain-language verdicts and display strings both shells print, so a reading reads identically everywhere. Cloudflare's keyless endpoints are the primary source; when they rate-limit a connection the download phase falls back to the nearest of several public test mirrors, ranked by a round-trip probe. No async runtime, and every phase is timeout-bounded. macOS reaches it via `bridge/ffi`, linows via its Tauri command layer.
+- `core/todo`: shared store for the `/todo` command. Owns the `todo_tasks` table inside the app's existing `look.db` (full-set load/save, one-year retention), reached via the Tauri command layer. `examples/seed.rs` fills a dev database with demo history, including near-today extension-window cases for `/todo` UI testing.
+- `core/netspeed`: the `/speed` measurement. A latency probe (the best of several TCP handshakes against a pre-resolved address, rather than a subtraction of two of curl's cumulative timers, whose order is not portable across curl builds), download and upload phases (four parallel `curl` streams each), and the plain-language verdicts and display strings the UI prints. Cloudflare's keyless endpoints are the primary source; when they rate-limit a connection the download phase falls back to the nearest of several public test mirrors, ranked by a round-trip probe. No async runtime, and every phase is timeout-bounded. Reached via the Tauri command layer.
 - `core/engine`: query parsing, indexing orchestration, scoring, top-k retrieval, in-memory cache management.
 
 ```mermaid
@@ -88,15 +77,11 @@ flowchart TB
     RNK --> ENG
     STG --> ENG
 
-    subgraph Bridge[bridge/ffi]
-      FFI[look-ffi]
-    end
-
-    ENG --> FFI
-    IDX --> FFI
-    STG --> FFI
-    ANS --> FFI
-    NET --> FFI
+    ENG --> Invoke[Tauri commands\nsearch / record_usage / ...]
+    IDX --> Invoke
+    STG --> Invoke
+    ANS --> Invoke
+    NET --> Invoke
 ```
 
 ---
@@ -108,20 +93,18 @@ Search request path:
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant LV as LauncherView
-    participant EB as EngineBridge
-    participant FFI as look_search_json_compact
+    participant JS as search.js
+    participant IP as Tauri invoke
     participant QE as QueryEngine
 
-    U->>LV: Type query
-    LV->>LV: Debounce and cancel stale task
-    LV->>EB: search(query, limit)
-    EB->>FFI: C ABI call
-    FFI->>QE: with_engine(search)
+    U->>JS: Type query
+    JS->>JS: Optimistic echo from cache, then debounce
+    JS->>IP: search(query, limit)
+    IP->>QE: query pipeline
     QE->>QE: parse -> match -> rank -> top-k
-    QE-->>FFI: Vec LaunchResult
-    FFI-->>EB: JSON payload
-    EB-->>LV: [LauncherResult]
+    QE-->>IP: LaunchResult list
+    IP-->>JS: JSON payload
+    JS-->>U: render rows (stale versions dropped)
 ```
 
 Query mode parsing in engine supports explicit prefixes:
@@ -160,7 +143,7 @@ The indexing flow is designed as a bounded pipeline:
 Runtime refresh triggers:
 
 - file-system watcher monitors configured app/file roots and marks in-memory `index_dirty` on create/remove/rename events,
-- launcher open (`Cmd+Space`) requests background refresh through FFI,
+- launcher open (`Alt+Space`) requests background refresh through a Tauri command,
 - refresh execution mode depends on `lazy_indexing_enabled`:
   - `true`: run only when dirty,
   - `false`: run on every launcher open request.
@@ -267,19 +250,16 @@ Usage recording closes the loop by updating persistent and in-memory state after
 
 ```mermaid
 sequenceDiagram
-    participant UI as Swift UI
-    participant EB as EngineBridge
-    participant FFI as look_record_usage_json
+    participant UI as app.js
+    participant IP as Tauri invoke
     participant ST as SqliteStore
     participant QE as QueryEngine cache
 
-    UI->>EB: recordUsage(candidateId, action)
-    EB->>FFI: look_record_usage_json(id, action)
-    FFI->>FFI: Validate candidate id prefix and action
-    FFI->>ST: INSERT usage_events and UPDATE candidates
-    FFI->>QE: record_usage_in_memory(candidateId, now)
-    FFI-->>EB: JSON {ok,error}
-    EB-->>UI: Optional BridgeError
+    UI->>IP: recordUsage(candidateId, action)
+    IP->>IP: Validate candidate id prefix and action
+    IP->>ST: INSERT usage_events and UPDATE candidates
+    IP->>QE: record_usage_in_memory(candidateId, now)
+    IP-->>UI: {ok, error}
 ```
 
 ---
@@ -293,7 +273,8 @@ stateDiagram-v2
     [*] --> NormalSearch
     NormalSearch --> ClipboardMode: clipboard prefix
     NormalSearch --> TranslationMode: translation prefix
-    NormalSearch --> CommandMode: Cmd+/
+    NormalSearch --> CommandMode: Ctrl+/
+
 
     CommandMode --> NormalSearch: Esc
     ClipboardMode --> NormalSearch: remove clipboard prefix
@@ -302,8 +283,8 @@ stateDiagram-v2
     state NormalSearch {
       [*] --> Results
       Results --> OpenTarget: Enter
-      Results --> RevealFinder: Cmd+F
-      Results --> WebSearch: Cmd+Enter
+      Results --> RevealFile: Ctrl+F
+      Results --> WebSearch: Ctrl+Enter
     }
 
     state CommandMode {
@@ -319,10 +300,10 @@ stateDiagram-v2
 
 Behavioral notes:
 
-- global hotkey `Cmd+Space` toggles launcher visibility,
-- web search is explicit handoff (`Cmd+Enter`),
-- clipboard history mode is shell-side and in-memory for current session,
-- command mode supports `calc`, `pomo`, `todo`, `speed`, `kill`, `shell`, `sys` (⌘1-7 / Ctrl+1-7 follow catalog order),
+- global hotkey `Alt+Space` toggles launcher visibility,
+- web search is explicit handoff (`Ctrl+Enter`),
+- clipboard history mode is frontend-side and in-memory for current session,
+- command mode supports `calc`, `pomo`, `todo`, `speed`, `kill`, `shell`, `sys` (Ctrl+1-7 follow catalog order),
 - settings panel controls theme/index/runtime knobs and persists locally.
 
 ---
@@ -362,67 +343,55 @@ Available themes (selected via Settings > Appearance):
 | Gruvbox | Retro warm tones |
 | Dracula | Classic purple-accented dark |
 | Kanagawa | Japanese-inspired dark theme |
-| Kindle | Paper and ink, e-reader light theme (Charter serif) |
-| Liquid | Liquid Glass surface, translucent fills (macOS 26+) |
+| Kindle | Paper and ink, e-reader light theme (serif) |
+| Liquid | Clear glass surface, translucent fills |
 | Custom | Auto-derived semantic colors from tint |
 
-Themes are defined in `Themes/` folder:
-- `BuiltinThemeStyle`: Base style with all color tokens
-- `BuiltinThemePreset`: Dropdown selection enum
-- Individual theme files: `CatppuccinTheme.swift`, `TokyoNightTheme.swift`, etc.
-
-A preset declares its `ThemeAppearance` (`.dark` or `.light`). It pins the
-NSVisualEffectView appearance, so a preset frosts the same way whether macOS is
-in Light or Dark mode, and it picks how the opaque command-mode surfaces and the
-pane scrims are mixed: dark themes darken, light themes lighten. A preset may
-also declare a `fontName`; presets that do not reset the font to the app default
-when applied.
-
-A preset also declares a `ThemeSurface` (`.classic` or `.liquid`), the second
-non-token axis alongside `ThemeAppearance`: it selects how surfaces are drawn
-rather than what colour they are, and scales every themed corner radius through
-`ThemeStore.surfaceCornerRadius(_:)`. Any new border or `clipShape` on a themed
-surface must go through that helper, or it desyncs from the fill behind it and
-draws a stray line across the corners.
-
-`ThemeStore.themeSurface()` resolves the axis from `blurMaterial` first and the
-preset second. That is deliberate: `savedThemeName()` stops recording `ui_theme`
-as soon as any value diverges from its preset (the load path applies the theme
-*over* the individual `ui_*` keys, so a stale name would discard the user's
-tweaks), while `ui_blur_material` persists on its own. Keying off the material
-means a customised Liquid theme keeps its glass across a relaunch.
-
-Liquid Glass itself is `Components/GlassEffectBackdrop.swift`, an
-`NSGlassEffectView` wrapper. Not SwiftUI's `glassEffect`, which refracts only
-what sits behind it inside its own view tree: the launcher window is
-transparent, so that renders as nearly nothing. The view also draws nothing
-without a `contentView`, and the theme tint is passed into its `tintColor`
-rather than layered over it, since a colour wash on top cancels the refraction.
-
-On linows the same presets live in `apps/linows/src/css/theme.css`, one
+Themes are defined in `apps/linows/src/css/theme.css`, one
 `:root[data-theme="…"]` block per preset, with `js/screens/settings.js`
-mirroring the raw slider values in `THEME_PRESETS` (tint, text and border are
-also written as inline custom properties, so both sides must agree). Appearance
-is not a flag there: a light preset flips the `--lift` / `--shadow` RGB
-triplets that stand chips off the backdrop and seat panes on it, and repaints
-the semantic tokens the dark presets inherit from `:root`. Opacities are the
-user's (`USER_CONTROLLED_KEYS`) except at one moment: picking a preset whose
-surface *is* its transparency snaps tint/text/border opacity back to the preset
-(`OPACITY_OWNING_THEMES`), because paper at a dark theme's transparency doesn't
-read as paper and glass at a near-opaque one is a blue panel. The switch
-persists those values, so restore paths stay dumb and the sliders are the
-user's again from the next drag. Kindle's font stack stays in CSS and applies
-while the Font field is left at `system-ui`; an explicit font still wins.
+mirroring the raw slider values in `THEME_PRESETS`.
 
-The surface axis ports as `data-surface="liquid"` on the document element,
-beside `data-theme`, with `css/liquid.css` carrying it. It is stored under its
-own config key (`ui_surface`) rather than derived from the theme name, for the
-same reason macOS resolves it from `ui_blur_material` first: nudging any slider
-drops `ui_theme` to `custom`, and the surface must not go with it. The radius
-scale is one custom property (`--surface-radius-scale`) that every themed radius
-multiplies through - `--corner-radius`, `--control-radius`, `--tile-radius`,
-`--bar-radius` - so a radius that skips the scale is a rule that hardcodes a px
-value, not a call site that forgot a helper.
+A preset declares its appearance (dark or light): dark themes darken the
+opaque command-mode surfaces and pane scrims, light themes lighten them. A
+preset may also declare a font; presets that do not reset the font to the
+app default when applied.
+
+A preset also declares a surface (classic or liquid), the second
+non-token axis alongside appearance: it selects how surfaces are drawn
+rather than what colour they are, and scales every themed corner radius
+through `--surface-radius-scale`. Any new border or radius on a themed
+surface must go through that scale, or it desyncs from the fill behind it
+and draws a stray line across the corners.
+
+`themeSurface()` resolves the axis from the surface key first and the
+preset second. That is deliberate: `savedThemeName()` stops recording
+`ui_theme` as soon as any value diverges from its preset (the load path
+applies the theme *over* the individual `ui_*` keys, so a stale name
+would discard the user's tweaks), while `ui_surface` persists on its own.
+Keying off the surface means a customised Liquid theme keeps its glass
+across a relaunch.
+
+Appearance is not a flag in the CSS: a light preset flips the `--lift` /
+`--shadow` RGB triplets that stand chips off the backdrop and seat panes
+on it, and repaints the semantic tokens the dark presets inherit from
+`:root`. Opacities are the user's (`USER_CONTROLLED_KEYS`) except at one
+moment: picking a preset whose surface *is* its transparency snaps
+tint/text/border opacity back to the preset (`OPACITY_OWNING_THEMES`),
+because paper at a dark theme's transparency doesn't read as paper and
+glass at a near-opaque one is a blue panel. The switch persists those
+values, so restore paths stay dumb and the sliders are the user's again
+from the next drag. Kindle's font stack stays in CSS and applies while
+the Font field is left at `system-ui`; an explicit font still wins.
+
+The surface axis is `data-surface="liquid"` on the document element,
+beside `data-theme`, with `css/liquid.css` carrying it. It is stored under
+its own config key (`ui_surface`) rather than derived from the theme name:
+nudging any slider drops `ui_theme` to `custom`, and the surface must not
+go with it. The radius scale is one custom property
+(`--surface-radius-scale`) that every themed radius multiplies through -
+`--corner-radius`, `--control-radius`, `--tile-radius`, `--bar-radius` -
+so a radius that skips the scale is a rule that hardcodes a px value, not
+a call site that forgot a helper.
 
 The material itself does not port. `backdrop-filter` blurs what the web engine
 composited behind the element, and the desktop behind a `transparent: true`
@@ -431,8 +400,7 @@ primitive at all. So linows renders Liquid as clear glass rather than frost:
 high transparency, a specular rim drawn as an overlay pseudo-element (above the
 tint and the background image, and a hairline whatever the user's border
 thickness), and saturated accents. Nothing in it needs the compositor, so it
-looks the same everywhere, and it mirrors macOS 26 shipping `Glass.clear`
-beside `Glass.regular`.
+looks the same everywhere.
 
 Real frost is available where the compositor grants it, and only there.
 `platform/linux/blur.rs` asks: on Wayland through `ext-background-effect-v1`
@@ -468,48 +436,17 @@ Blur Style and Blur Opacity controls act on real frost when there is any.
 
 ### Motion
 
-Every animated surface reads its physics from `Support/UI/Motion.swift`, so the
-feel is tuned in one place: `Spawn` (the launchpad cascade), `Selection` (the
-gliding pill and the one-shot zoom), `Slide` (horizontal entrances), `Surface`
-(the panel arriving), `Press`, `Value` (digit rolls) and `Caret`.
-
-Entrances key off `appearanceRevealToken`, a counter `LauncherView` bumps on
-every show. The window is only ordered out and back in, so `onAppear` fires once
-per process and cannot drive them. The modifiers are `rootReveal` (whole panel),
-`spawnReveal` (launchpad tiles, quick actions, the search bar), `slideReveal`
-via `placeholderReveal` / `stripReveal`, plus `symbolEffect(.bounce, value:)` on
-SF Symbols.
-
-Three constraints that are easy to break:
-
-- **Scope animations tightly.** An `.animation(_:value:)` high in the tree
-  attaches to its whole subtree, so when it fires every result row animates at
-  once. Per-row it is just as bad: it fires on each neighbour as the selection
-  passes. Row-local one-shot state driven by `onChange(of: isSelected)` is what
-  keeps a single row moving.
-- **`ThemedBackdrop` opts out of ambient transactions.** Nav wraps its selection
-  assignment in a global `withAnimation`, and re-compositing an
-  `NSVisualEffectView` or `NSGlassEffectView` inside that transaction flickers
-  the whole window on every keypress.
-- **Do not resolve icons inside `body` uncached.** `NSWorkspace.icon(forFile:)`
-  returns a fresh `NSImage` per call, which SwiftUI redraws; every icon in the
-  list then flickers on each keypress. `Support/RowIconCache.swift` returns one
-  instance per path. Process icons stay uncached, since pids are reused.
-
-Panel arrival is a content-layer effect, not a window one: animating the window
-would mean touching the `makeKeyAndOrderFront` path that the Cmd+Space
-cold-login bug lives in. Reduce Motion is honoured by every modifier.
-
-On linows the same pass lives in `src/css/motion.css`: one `:root` block of
-tokens (durations, offsets, stagger, the house curve) and the keyframes that
-read them, driven by classes rather than a token counter. `js/motion.js` toggles
-`is-entering` on `.launcher-window` on every summon, which cascades the panel
-arrival, the top bar, the placeholder overlay and the running-apps strip; the
-launchpad keeps its own replay (`components/superactions.js`) because it is
-built lazily. `window-shown` and `visibilitychange` both replay, and a short
-guard drops whichever lands second. The same stale-buffer problem macOS does not
-have is handled by arming the first frame on hide, so the frame the compositor
-presents on the next summon matches frame 0 instead of flashing and rewinding.
+Every animated surface reads its physics from one `:root` block of tokens
+in `src/css/motion.css` (durations, offsets, stagger, the house curve) and
+the keyframes that read them, driven by classes rather than a token
+counter. `js/motion.js` toggles `is-entering` on `.launcher-window` on
+every summon, which cascades the panel arrival, the top bar, the
+placeholder overlay and the running-apps strip; the launchpad keeps its own
+replay (`components/superactions.js`) because it is built lazily.
+`window-shown` and `visibilitychange` both replay, and a short guard drops
+whichever lands second. The stale-buffer problem is handled by arming the
+first frame on hide, so the frame the compositor presents on the next
+summon matches frame 0 instead of flashing and rewinding.
 Arming alone is not enough: the compositor keeps the last frame the webview
 *painted*, and a hide in the same tick leaves the revealed panel in that buffer.
 So every dismiss goes through `commands::hide_armed`, which emits
@@ -519,15 +456,13 @@ was painted. A 60 ms timer is the backstop for a webview that never answers.
 Each dismiss carries an id that `commands::show_launcher` clears, so a backstop
 or late ack from a dismiss the user undid can't hide the window again.
 
-Two constraints are tighter here than on macOS. Only `transform` and `opacity`
+Two constraints are easy to break. Only `transform` and `opacity`
 are animated, since they are compositor-handled and animating `filter` /
 `backdrop-filter` tanks the frame rate on WebKitGTK. And the selection pill's
 zoom uses the `scale` property rather than a `transform` function, because
 `components/results.js` drives the pill's position through `transform` and an
 animation on the same property would take the glide over and land the pill
-without it. `prefers-reduced-motion` is honoured throughout, except on Windows,
-where the flag tracks the "best performance" visual-effects preset rather than
-motion sensitivity.
+without it. `prefers-reduced-motion` is honoured throughout.
 
 ### Config File Integration
 
@@ -538,7 +473,7 @@ All settings are persisted to `.look/config`:
 
 **Appearance:**
 - `ui_tint_red`, `ui_tint_green`, `ui_tint_blue`, `ui_tint_opacity` - background tint (0-1)
-- `ui_blur_material` - blur style (hudWindow, sidebar, menu, underWindowBackground, liquidGlass). `liquidGlass` renders through `NSGlassEffectView` and needs macOS 26; below that it falls back to `hudWindow`, and neither it nor the Liquid theme is offered as a new choice in Settings. A value already persisted stays selectable and is labelled as unsupported rather than being rewritten, since normalising it would destroy the setting for the same config on a newer machine.
+- `ui_blur_material` - blur style. On linows the surface axis lives in `ui_surface` (empty/classic or `liquid`), not in this key.
 - `ui_blur_opacity` - blur opacity (0-1). On linows this thins the tint only when there is frost to thin: a background image, or a compositor granting behind-window blur. With neither it is ignored and Tint Opacity alone decides the window alpha.
 - `ui_surface` - linows only. How surfaces are drawn, as opposed to what colour they are: empty (classic) or `liquid`. Stored separately from `ui_theme` because nudging any slider rewrites that key to `custom`, and a customised Liquid must keep its glass.
 - `ui_font_name`, `ui_font_size` - font settings
@@ -565,7 +500,7 @@ All settings are persisted to `.look/config`:
 
 ### Config Reload Validation
 
-When reloading (Cmd+Shift+;), invalid values are detected and shown:
+When reloading (Ctrl+Shift+;), invalid values are detected and shown:
 - Values outside valid range (e.g., opacity > 1)
 - Unknown theme names
 - Invalid numbers

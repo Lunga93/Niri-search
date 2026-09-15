@@ -1,52 +1,46 @@
-# look User Guide
+# Niri-Search User Guide
 
-`look` is a keyboard-first launcher for macOS, Windows, and Linux focused on fast local actions.
+`niri-search` is a keyboard-first launcher for Linux (Niri-first) focused on fast local actions.
 
-> **Cross-platform shortcut note.** Examples are written with macOS modifiers (`Cmd+...`). On Windows and Linux, read `Cmd` as `Ctrl` - except the launcher toggle, which is `Alt+Space` (since `Win+Space` / `Super+Space` are reserved by the OS or desktop environment).
->
-> | macOS                                   | Windows / Linux   |
-> | --------------------------------------- | ----------------- |
-> | `Cmd+Space`                             | `Alt+Space`       |
-> | `Cmd+Enter`                             | `Ctrl+Enter`      |
-> | `Cmd+F`                                 | `Ctrl+F`          |
-> | `Cmd+C`                                 | `Ctrl+C`          |
-> | `Cmd+/`                                 | `Ctrl+/`          |
-> | `Cmd+0`                                 | `Ctrl+0`          |
-> | `Cmd+1`…`Cmd+7` (command mode)          | `Ctrl+1`…`Ctrl+7` |
-> | `Cmd+1`…`Cmd+9` (running-apps switcher) | `Alt+1`…`Alt+9`   |
-> | `Cmd+P`                                 | `Ctrl+P`          |
-> | `Cmd+Shift+P`                           | `Ctrl+Shift+P`    |
-> | `Cmd+Shift+,`                           | `Ctrl+Shift+,`    |
-> | `Cmd+Shift+;`                           | `Ctrl+Shift+;`    |
->
-> "Reveal in Finder" reads as "Reveal in Explorer" on Windows and "Show in Files" on Linux.
+> **Shortcut note.** The launcher toggle is `Alt+Space`. The running-apps
+> switcher uses `Alt+1`…`Alt+9`, and empty-home super actions use
+> `Alt`+letter. Everything else is `Ctrl`-based (`Ctrl+Enter` for web
+> search, `Ctrl+F` to reveal in the file manager, `Ctrl+/` for command
+> mode, `Ctrl+Shift+,` for settings, `Ctrl+Shift+;` to reload config).
 
 ## First run
 
-Install with Homebrew (see [README](../README.md#install) for alternatives):
+Install the `.deb` or `.rpm` (see [README](../README.md#install)), or run
+the installer with `--configure-niri` to wire the Niri keybinds at the
+same time:
 
 ```bash
-brew tap kunkka19xx/tap
-brew install --cask look
+curl -fsSL https://raw.githubusercontent.com/Lunga93/Niri-search/main/scripts/linux/install-niri-search.sh | bash -s -- --configure-niri
 ```
 
-On first launch, Look will index your apps, files, and folders in the background. You can start using it immediately - results appear as indexing completes.
+On first launch, Niri-Search will index your apps, files, and folders in the background. You can start using it immediately - results appear as indexing completes.
 
-To bind `Cmd+Space` to Look, disable Spotlight's default shortcut: `System Settings > Keyboard > Keyboard Shortcuts > Spotlight`.
+On Niri, `Alt+Space` has to live in `~/.config/niri/config.kdl` (see the
+README's Niri section, or `config/niri-search.kdl` in this repo for a
+ready-made stanza). Press it after the first launch to summon the window.
 
 ## Permissions
 
-Look is designed to need as few macOS permissions as possible:
+On Linux there is no permission-prompt model to satisfy: no Accessibility,
+no Full Disk Access, no Screen Recording. Two things to know:
 
-- **No Accessibility permission** is required.
-- **No Full Disk Access** is required. Look indexes standard user directories (`~`, `/Applications`, `~/Documents`, `~/Downloads`, etc.). To index a directory outside those defaults, add it via `file_scan_extra_roots` in `~/.look/config`.
-- **No Screen Recording** is required.
-- **Network access** is used for explicit actions - `t"` translation, `tw"` dictionary lookup, and `Cmd+Enter` web search - and, when **AI features** are enabled (macOS, on by default), for live Google search suggestions and the DuckDuckGo/Wikipedia answer card as you type. The AI model runs wherever you point it. Apple Intelligence is on-device and Ollama defaults to `localhost`, so by default no prompt leaves the machine. If you change `ollama_host` to a non-loopback address, or select a cloud-routed Ollama model (a `-cloud` tag, which the local daemon proxies to Ollama's service), then **your prompt travels over the network to that provider**. Separately from the prompt, your calendar, clipboard, and remembered facts are attached only when inference is on this machine; for anything remote they are withheld until you turn on `ai_allow_remote_context` in Settings. Turn the AI/web features off by setting `ai_enabled = false` in `~/.look/config` (or via Settings). Local search and indexing never make network calls.
-- **Finder Automation** is requested only when you empty the Trash (`Cmd+D` on the pinned Trash folder). The Trash is protected by macOS, so Look asks Finder to empty it; macOS prompts once, and you can manage it under `System Settings > Privacy & Security > Automation`. Moving individual files to the Trash needs no permission.
-
-**Settings > AI > Permissions** lists every capability that needs OS access (Calendar, Reminders), what Look does with it, and whether it's connected. **Grant all** asks for the outstanding ones in turn; macOS has no single "allow everything" prompt, so each still appears on its own. Once a permission has been answered - granted or denied - only System Settings can change it, so those rows link straight to the right pane. Look also asks the first time you use a feature that needs access, which is why `join` may prompt for Calendar.
-
-If macOS prompts for permission during an action you didn't trigger, that's a bug - please [file an issue](https://github.com/kunkka19xx/look/issues).
+- Niri-Search indexes standard user directories (`~`, `~/Documents`,
+  `~/Downloads`, etc.). To index a directory outside those defaults, add
+  it via `file_scan_extra_roots` in `~/.look/config`.
+- **Network access** is used only for explicit actions - `t"`
+  translation, `tw"` dictionary lookup, and `Ctrl+Enter` web search -
+  and, when **AI features** are enabled (on by default), for live Google
+  search suggestions and the DuckDuckGo/Wikipedia answer card as you
+  type. Turn the AI/web features off by setting `ai_enabled = false` in
+  `~/.look/config` (or via Settings). Local search and indexing never
+  make network calls.
+- File dialogs go through `xdg-desktop-portal`, so they follow your
+  desktop's own file picker with its own sandboxing.
 
 ## Core workflow
 
@@ -61,20 +55,20 @@ Default search sources:
 
 Useful actions:
 
-- `Cmd+F`: reveal selected app/file/folder in Finder
-- `Cmd+C`: copy selected file/folder
-- `Cmd+P`: toggle pick on the selected file/folder (multi-select); the picked set is written to the system pasteboard so you can paste them anywhere in Finder
-- `Cmd+Shift+P`: clear all picked items
-- `Cmd+D`: move the selected file/folder - or all picked items - to the Trash (macOS only for now). Like Finder's `Cmd+Delete`, this is immediate and unconfirmed because it's recoverable: the items go to the Trash, not permanent deletion. The rows disappear from results right away.
-- `Cmd+Enter`: web search current query (Google)
+- `Ctrl+F`: reveal selected app/file/folder in the file manager
+- `Ctrl+C`: copy selected file/folder
+- `Ctrl+P`: toggle pick on the selected file/folder (multi-select); the picked set is written to the system clipboard so you can paste the paths anywhere
+- `Ctrl+Shift+P`: clear all picked items
+- `Ctrl+D`: move the selected file/folder - or all picked items - to the system Trash. Like a file manager delete, this is immediate and unconfirmed because it's recoverable: the items go to the Trash, not permanent deletion. The rows disappear from results right away.
+- `Ctrl+Enter`: web search current query (Google)
 
-When at least one item is picked, the right panel switches to the **Picked** list - each row has an `X` to remove a single item, plus a **Clear all** button. File/folder copies (both `Cmd+C` and `Cmd+P`) are excluded from clipboard history.
+When at least one item is picked, the right panel switches to the **Picked** list - each row has an `X` to remove a single item, plus a **Clear all** button. File/folder copies (both `Ctrl+C` and `Ctrl+P`) are excluded from clipboard history.
 
-**Trash.** Type `trash` to pin the Trash quick folder; `Enter` opens it in Finder. With the Trash folder selected, its preview shows the item count and `Cmd+D` **empties** the Trash. Emptying is permanent, so it asks you to confirm (`Y`/`Enter` to empty, `N`/`Esc` to cancel). Look empties the Trash through Finder, so the first time you do this macOS asks for permission to control Finder (see [Permissions](#permissions)).
+**Trash.** Type `trash` to pin the Trash quick folder; `Enter` opens it in the file manager. With the Trash folder selected, its preview shows the item count.
 
 ## Super actions
 
-With an empty query, the home screen shows a strip of system controls instead of results. Fire a tile by clicking it, or with `Cmd`+letter (macOS) / `Alt`+letter (Linux, Windows), where the letter is the one highlighted on the tile:
+With an empty query, the home screen shows a strip of system controls instead of results. Fire a tile by clicking it, or with `Alt`+letter, where the letter is the one highlighted on the tile:
 
 | Key | Tile        | Effect                       |
 | --- | ----------- | ---------------------------- |
@@ -94,17 +88,14 @@ The rest of the strip is read-only: **Battery**, **Weather**, and the large slot
 
 Turn the strip off in `Settings > Appearance > Super Actions`. Off hides it and disables the letter shortcuts. Saved as `super_actions_enabled=true|false` in `~/.look/config`.
 
-## AI answers and web suggestions (macOS, Linux, Windows)
+## AI answers and web suggestions
 
-Look can answer questions and look things up without leaving the launcher. These features are **on by default** on macOS, Linux, and Windows. Toggle them in Settings or with `ai_enabled` in `~/.look/config`.
+Niri-Search can answer questions and look things up without leaving the launcher. These features are **on by default**. Toggle them in Settings or with `ai_enabled` in `~/.look/config`.
 
-- **Answer card.** A question, an entity that has no local match (e.g. `sir alex ferguson`), or an instant-answer pattern (weather, currency, crypto) shows a Spotlight-style card above the results. Sources resolve independently and each appears as it lands - **DuckDuckGo** and **Wikipedia**. Arithmetic doesn't answer here anymore - see the **Calculator row** under Query prefixes below. On macOS, when no web source has an answer it falls back to a streaming on-device **Apple Intelligence** answer. Click a source label to open it; the copy button copies that block.
-- **Search suggestions.** For plain text queries (2+ characters), Google autocomplete rows appear under the results. `Enter` on a suggestion (or `Cmd+Enter` on your query) runs a web search in your default browser.
-- **Query rewrite** _(macOS only)_. When a natural-language query finds nothing locally, the on-device model rewrites it into Look's prefix grammar and searches again. It never overrides results you can already see - it only runs when the raw query came up empty.
+- **Answer card.** A question, an entity that has no local match (e.g. `sir alex ferguson`), or an instant-answer pattern (weather, currency, crypto) shows an answer card above the results. Sources resolve independently and each appears as it lands - **DuckDuckGo** and **Wikipedia**. Arithmetic doesn't answer here anymore - see the **Calculator row** under Query prefixes below. Click a source label to open it; the copy button copies that block.
+- **Search suggestions.** For plain text queries (2+ characters), Google autocomplete rows appear under the results. `Enter` on a suggestion (or `Ctrl+Enter` on your query) runs a web search in your default browser.
 
-**Platform note.** The web answer card and Google suggestions are available on macOS, Linux, and Windows. The on-device LLM - query rewrite and the Apple Intelligence answer fallback - is **macOS-only**; there is no on-device model on Linux/Windows, so there the card uses web sources (DuckDuckGo, Wikipedia, currency/weather/crypto) only. The `ai_enabled` toggle is shared across platforms.
-
-**Network note.** While AI features are on, the answer card's web sources and the Google suggestions send your typed query to those services (DuckDuckGo, Wikipedia, Google). The on-device model makes no network calls of its own. Set `ai_enabled = false` to disable all of it and run fully offline.
+**Network note.** While AI features are on, the answer card's web sources and the Google suggestions send your typed query to those services (DuckDuckGo, Wikipedia, Google). Set `ai_enabled = false` to disable all of it and run fully offline.
 
 ## Query prefixes
 
@@ -113,7 +104,7 @@ Don't remember the prefixes? Type a single `"` to open a menu listing every pref
 - `a"term` -> apps only
 - `f"term` -> files only
 - `d"term` -> folders only
-- `rc"term` -> recent files/folders, newest activity first (optional filter; `rc"` alone lists all). Blends what you've opened through Look with what recently appeared/changed on disk (downloads, screenshots). macOS for now.
+- `rc"term` -> recent files/folders, newest activity first (optional filter; `rc"` alone lists all). Blends what you've opened through Niri-Search with what recently appeared/changed on disk (downloads, screenshots).
 - `r"pattern` -> regex search (case-insensitive)
 - `c"term` -> clipboard history search
 - `t"text` -> quick translation panel
@@ -121,9 +112,9 @@ Don't remember the prefixes? Type a single `"` to open a menu listing every pref
 
 Path-like queries (for example `git/project/readme`) are also supported and bias path matches.
 
-URL-like queries are detected automatically (no prefix). Type a URL and Look offers an **Open in browser** row: a structural URL (with a scheme, port, path, or `localhost`/IP - e.g. `http://localhost:3000` or `example.com/docs`) ranks at the top, while a bare `host.tld` (e.g. `github.com`) ranks after your local results so it never displaces a real match. URLs you open this way come back as **Recently opened** rows, ranked by frecency and filtered as you type.
+URL-like queries are detected automatically (no prefix). Type a URL and Niri-Search offers an **Open in browser** row: a structural URL (with a scheme, port, path, or `localhost`/IP - e.g. `http://localhost:3000` or `example.com/docs`) ranks at the top, while a bare `host.tld` (e.g. `github.com`) ranks after your local results so it never displaces a real match. URLs you open this way come back as **Recently opened** rows, ranked by frecency and filtered as you type.
 
-Arithmetic is detected automatically too (no prefix). Type an expression like `2+2` or `sqrt(16)` and Look pins a **Calculator** row above every other result with the answer. `Enter` or a click copies the value and hides the launcher; clipboard history (`c"`) shows the worked expression (`2+2 = 4`) but still pastes just the value. Shape decides whether something counts as math, not spacing, so a date (`20-05-2026`), a resolution (`1920x1080`), or a ratio (`16:9`) is left alone. Aliases `x`, `:`, and a leading `v` (multiply, divide, square root) only count as operators when they stand alone (`3 x 4`, `10 : 2`, `v 16`) - inside the dedicated `/calc` panel below they're honored wherever they land, so `1920x1080` there evaluates as a product.
+Arithmetic is detected automatically too (no prefix). Type an expression like `2+2` or `sqrt(16)` and Niri-Search pins a **Calculator** row above every other result with the answer. `Enter` or a click copies the value and hides the launcher; clipboard history (`c"`) shows the worked expression (`2+2 = 4`) but still pastes just the value. Shape decides whether something counts as math, not spacing, so a date (`20-05-2026`), a resolution (`1920x1080`), or a ratio (`16:9`) is left alone. Aliases `x`, `:`, and a leading `v` (multiply, divide, square root) only count as operators when they stand alone (`3 x 4`, `10 : 2`, `v 16`) - inside the dedicated `/calc` panel below they're honored wherever they land, so `1920x1080` there evaluates as a product.
 
 ## Clipboard and translation
 
@@ -131,7 +122,7 @@ Clipboard mode (`c"`):
 
 - stores recent text clips for the running app session (history size is configurable via `clipboard_history_limit`, see File-only settings below),
 - `Enter` on a clipboard row copies that content back to clipboard,
-- `Cmd+D` (`Ctrl+D` on Linux/Windows) removes the selected row from Look's clipboard history.
+- `Ctrl+D` removes the selected row from Niri-Search's clipboard history.
 
 Translation mode (`t"`/`tw"`):
 
@@ -140,7 +131,7 @@ Translation mode (`t"`/`tw"`):
 
 ## Command mode
 
-Enter command mode with `Cmd+/`, or jump straight to a specific command from the home screen with the `:` prefix:
+Enter command mode with `Ctrl+/`, or jump straight to a specific command from the home screen with the `:` prefix:
 
 - `:calc` then `Enter` - open `/calc` with empty input
 - `:calc 2+2` - opens `/calc` with `2+2` already typed (the space after the command id is the trigger; you can keep typing without pressing Enter)
@@ -154,7 +145,7 @@ Built-in commands:
 - `shell`: run shell command text
 - `kill`: force-kill a running app/process (with confirmation), supports port queries like `:3000` or `port 3000`
 - `sys`: show system information
-- `pomo`: pomodoro focus timer with editable session list, three timer styles (Modern Ring / Vintage Dial / Minimal Text), background-music folder, menu-bar mini-timer, and a 5-second standby fade
+- `pomo`: pomodoro focus timer with editable session list, three timer styles (Modern Ring / Vintage Dial / Minimal Text) and a background-music folder
 - `todo`: daily tasks and progress. Two pages - a task list grouped by day, and a Stats page (weekly/monthly completion, streak, 30-day trend, GitHub-style year heatmap)
 - `speed`: measure the connection (download, upload, latency) on a live dial, with your LAN and public addresses
 
@@ -184,7 +175,7 @@ Built-in commands:
 - Edit the **Session List** to plan focus + break blocks; the timer auto-advances through them and loops the music folder while running
 - `Space` start/pause the active session • `R` reset • `P` toggle music play/pause
 - Pick a folder of audio files (mp3/m4a/wav/aac/flac/ogg/aiff/alac); tracks are played one at a time, shuffled per launch
-- A "session ending soon" alert fires 10s before each block ends - both as a menu-bar popover and (when granted) a macOS notification with chime
+- A "session ending soon" alert fires 10s before each block ends
 - Menu-bar mini-timer shows remaining time even when the launcher is hidden; click to jump back into `/pomo`
 
 `todo` quick reference:
@@ -192,7 +183,7 @@ Built-in commands:
 - Tasks are grouped by day, newest on top. Up to 3 unfinished tasks per day (complete one to add more) and up to 3 upcoming date groups (`Add date + N`)
 - Past days are non-editable. Unfinished tasks 1-3 days late show an `EXTENDED` badge and can still be marked done; unfinished tasks more than 3 days late show `OVERDUE` and their completion state is locked
 - Search matches task names and dates (`jul 3`, `yesterday`); case- and diacritic-insensitive
-- Nothing autosaves: hit `Save` or `Cmd+S`; `Cmd+N` flips between the Tasks and Stats pages
+- Nothing autosaves: hit `Save` or `Ctrl+S`; `Ctrl+N` flips between the Tasks and Stats pages
 - When today has tasks, the home-screen hint bar shows a clickable `Todo X/Y` stat; hovering it lists what's still unfinished
 - Data lives in the local database and is kept for one year
 
@@ -201,19 +192,19 @@ Behavior:
 - `Escape`: leave command mode
 - `Shift+Escape`: hide launcher
 - `Tab` / `Shift+Tab`: switch commands while staying in command mode
-- `Cmd+1`..`Cmd+7`: jump to specific command (`calc`, `pomo`, `todo`, `speed`, `kill`, `shell`, `sys`)
-- `Cmd+N` / `Cmd+S` (inside `/todo`): switch Tasks/Stats page, save changes
+- `Ctrl+1`..`Ctrl+7`: jump to specific command (`calc`, `pomo`, `todo`, `speed`, `kill`, `shell`, `sys`)
+- `Ctrl+N` / `Ctrl+S` (inside `/todo`): switch Tasks/Stats page, save changes
 - `R` / `E` (inside `/speed`): run the test again, show or hide the public address
 - `Up` / `Down`: in `kill`, navigate process/app results
 - shell text containing `sudo` shows an orange warning cue
 
 ## Your own sources
 
-Look indexes apps, files, and System Settings by default. **Sources** are how you add your own rows: your repos, your SSH hosts, your morning routine, your deploy script. They rank, preview, and act like every other row.
+Niri-Search indexes apps, files, and System Settings by default. **Sources** are how you add your own rows: your repos, your SSH hosts, your morning routine, your deploy script. They rank, preview, and act like every other row.
 
-> Needs Look v0.6.12 or newer.
+> Needs Niri-Search v0.6.12 or newer.
 
-Declare them in TOML files under `~/.look/sources/`. Put as many files in there as you like: Look reads **every** `.toml` in the directory and merges them, so you can split by topic (`work.toml`, `git.toml`, `ssh.toml`) and delete one when you are done with it. Block ids have to be unique across all of them.
+Declare them in TOML files under `~/.look/sources/`. Put as many files in there as you like: Niri-Search reads **every** `.toml` in the directory and merges them, so you can split by topic (`work.toml`, `git.toml`, `ssh.toml`) and delete one when you are done with it. Block ids have to be unique across all of them.
 
 Each `[block]` has a `name` you can type and exactly one producer key that says what it is:
 
@@ -235,12 +226,12 @@ edit = "nvim {path}"
 
 [work]
 name = "Work setup"
-do   = ["open -a Slack", "open -a Safari https://github.com"]
+do   = ["xdg-open https://github.com"]
 ```
 
-Reload with `Cmd+Shift+;` (macOS) or `Ctrl+Shift+;` (Linux, Windows) and type `projects`.
+Reload with `Ctrl+Shift+;` and type `projects`.
 
-From there you can add `then` targets (actions and drill-downs reached with `Cmd+K`), a `preview` command for the right panel, a `confirm` question before anything destructive, per-row icons via `format = "json"`, and `aliases` / `bias` to place a block in the ranking.
+From there you can add `then` targets (actions and drill-downs reached with `Ctrl+K`), a `preview` command for the right panel, a `confirm` question before anything destructive, per-row icons via `format = "json"`, and `aliases` / `bias` to place a block in the ranking.
 
 Commands are shell text, run by your login shell, so your own scripts are first-class: `run = "~/bin/my-repos"` or `do = ["~/bin/deploy.sh {path}"]`, in any language with a shebang, reading the row from `LOOK_ID` / `LOOK_TITLE` / `LOOK_PATH` if that suits it better than arguments. An executable dropped straight into `~/.look/sources/` needs no declaration at all: it _is_ a `run` block. One caveat worth knowing up front: a login shell reads `~/.zprofile` and `~/.zshenv`, not `~/.zshrc`, and fish/nu users fall back to `/bin/sh`.
 
@@ -250,7 +241,7 @@ Commands are shell text, run by your login shell, so your own scripts are first-
 
 ## Settings and config
 
-Open settings with `Cmd+Shift+,`.
+Open settings with `Ctrl+Shift+,`.
 
 ### Appearance / Themes
 
@@ -273,7 +264,7 @@ Built-in theme presets are available:
 | Dracula     | Classic purple-accented dark      |
 | Kanagawa    | Japanese-inspired dark theme      |
 | Kindle      | Paper and ink e-reader look       |
-| Liquid      | Liquid Glass surface (macOS 26+)  |
+| Liquid      | Clear glass surface               |
 | Custom      | Your own colors derived from tint |
 
 Theme is saved as `ui_theme=<name>` in config, and a name written there overrides
@@ -281,50 +272,34 @@ the individual `ui_*` values. Save Config writes the preset name only while ever
 value still matches that preset; once you tweak one, it writes `ui_theme=` and
 your literal `ui_*` values instead, so the edit survives a reload. Kindle is the
 one light preset: it also switches the frosted panels to a light material and the
-font to Charter, macOS' stand-in for Bookerly. Picking a preset overwrites your
+font to a serif face. Picking a preset overwrites your
 tint, text color, border and font; `Custom` keeps the current values and derives
 the rest from them.
 
 Liquid is the one preset that changes how surfaces are drawn rather than only
-what colour they are. It renders the window and every tile on macOS 26's Liquid
-Glass, rounds corners further, and uses far more transparent fills so the glass
-reads as a lens rather than a panel. It needs macOS 26 and is hidden from the
-picker on older releases. If a config written on macOS 26 is opened on an older
-one, the value is kept and shown as unsupported rather than silently changed.
-Two consequences worth knowing:
+what colour they are: the same palette with rounder corners, rendered as clear
+glass with a bright rim along the top edge. Refraction is not available to a
+web frontend at all - CSS can only blur what the page itself drew, and the
+desktop behind the window is drawn by the system, not the page.
 
-- `Blur Opacity` is disabled while Liquid Glass is the blur style, because glass
-  has no blur to thin. Your value is kept and returns when you switch back.
-- The glass follows `Blur Style`, not the theme name, so you can pick
-  `Settings > Appearance > Blur Style > Liquid Glass` on any theme to get the
-  glass surface with that theme's palette. Going the other way, selecting Liquid
-  and then a different blur style keeps Liquid's palette _and_ its rounder
-  corners, and swaps only the material for the classic blur.
-
-On Linux and Windows, Liquid is clear glass rather than frosted: the same
-palette, the same rounder corners, plus a bright rim along the top edge.
-Refraction is not available to a web frontend at all - CSS can only blur what
-the page itself drew, and the desktop behind the window is drawn by the system,
-not the page.
-
-Blur behind the window is the compositor's to grant, and Look asks for it
+Blur behind the window is the compositor's to grant, and Niri-Search asks for it
 wherever the ask exists: KDE Plasma 6.7+, Hyprland 0.56+ and Niri through the
 `ext-background-effect-v1` protocol, older Plasma through KDE's own, and KWin on
 X11 through a window property. There is nothing to switch on - if your
 compositor takes the request the frost is there, and `Blur Opacity` starts
 thinning the tint so more of it shows through. Everywhere else (GNOME today,
-plain sway, X11 without KWin) Look stays clear glass and `Blur Opacity` applies
+plain sway, X11 without KWin) Niri-Search stays clear glass and `Blur Opacity` applies
 only when you have set a background image. Driving blur from your own compositor
-config still works; Look's request is additional, not exclusive.
+config still works; Niri-Search's request is additional, not exclusive.
 
-**Running Apps**: a switch that shows running-app icons in the right half of the search bar. When on, the search field shrinks to the left half and the running apps fill the right half (right-aligned, growing leftward as more apps open). Each icon has a corner number badge; pressing the modifier + the badge digit on the home screen activates that app - `Cmd+1`..`Cmd+9` on macOS, `Alt+1`..`Alt+9` on Linux and Windows. When off, the search bar spans the full width and the switcher shortcut is disabled. AI mode (`>`) hides the row regardless of this setting, and its digits open listed conversations instead. The launcher window stays the same size either way.
+**Running Apps**: a switch that shows running-app icons in the right half of the search bar. When on, the search field shrinks to the left half and the running apps fill the right half (right-aligned, growing leftward as more apps open). Each icon has a corner number badge; pressing the modifier + the badge digit on the home screen activates that app - `Alt+1`..`Alt+9`. When off, the search bar spans the full width and the switcher shortcut is disabled. AI mode (`>`) hides the row regardless of this setting, and its digits open listed conversations instead. The launcher window stays the same size either way.
 
 Behavior:
 
 - **Stable** - icons sit in alphabetical order and don't shuffle when you switch apps. The activation digit for a given app stays the same until you launch or quit something.
 - **Ergonomic badge keys** - easier-to-reach keys are assigned first. With 5 running apps the badges are `1, 2, 3, 8, 9` (skipping the harder middle keys); `5/6/7` only get used when you have 7+ apps running.
-- **Linux focus** - Look's GNOME Shell extension activates the app's most-recent window on Wayland; X11 uses `_NET_ACTIVE_WINDOW` via x11rb; sway/Hyprland use `wlr-foreign-toplevel-management`; i3 uses `i3-msg`; niri uses its own IPC socket, which also scrolls the view to the window's workspace.
-- **Windowless apps** (Finder with no Finder windows, etc.) get a fresh window via a Dock-style "reopen" so you don't see an empty flash.
+- **Linux focus** - Niri-Search's GNOME Shell extension activates the app's most-recent window on Wayland; X11 uses `_NET_ACTIVE_WINDOW` via x11rb; sway/Hyprland use `wlr-foreign-toplevel-management`; i3 uses `i3-msg`; niri uses its own IPC socket, which also scrolls the view to the window's workspace.
+- **Windowless apps** get a fresh window on activation so you don't see an empty flash.
 
 Saved as `running_apps_placement=<value>` in `~/.look/config` (`none` = off, any other value = on; legacy `top`/`right`/`bottom` values still load as "on"). New keys are auto-appended to existing config files on next Save Config.
 
@@ -347,9 +322,9 @@ These control how deeply and how many files are indexed for search.
 
 Lazy indexing behavior:
 
-- when **On**, Look listens for file/app create/remove/rename events and marks the index dirty,
-- pressing `Cmd+Space` triggers background reindex only when dirty,
-- when **Off**, pressing `Cmd+Space` always triggers background reindex.
+- when **On**, Niri-Search listens for file/app create/remove/rename events and marks the index dirty,
+- pressing `Alt+Space` triggers background reindex only when dirty,
+- when **Off**, pressing `Alt+Space` always triggers background reindex.
 
 ### Other Settings
 
@@ -361,7 +336,7 @@ Runtime config file:
 
 - path: `~/.look/config`
 - optional override: `LOOK_CONFIG_PATH=/path/to/config`
-- reload after manual edits: `Cmd+Shift+;`
+- reload after manual edits: `Ctrl+Shift+;`
 - reset to fresh defaults from UI: `Settings -> Advanced -> Create Fresh Config` (confirmation popup)
 
 NixOS / Home Manager users can manage the same file declaratively through the
@@ -370,7 +345,7 @@ modules, which Home Manager does not do on its own:
 
 ```nix
 # flake.nix
-inputs.look.url = "github:kunkka19xx/look?dir=apps/linows";
+inputs.look.url = "github:Lunga93/Niri-search?dir=apps/linows";
 
 homeConfigurations."me" = home-manager.lib.homeManagerConfiguration {
   inherit pkgs;
@@ -388,7 +363,7 @@ homeConfigurations."me" = home-manager.lib.homeManagerConfiguration {
     enable = true;
     theme = "kindle";
     settings.ai_enabled = false;
-    # package = null;  # config only, Look already installed system-wide
+    # package = null;  # config only, Niri-Search already installed system-wide
   };
 }
 ```
@@ -397,7 +372,7 @@ Activation merges those keys into `~/.look/config` instead of replacing it, so
 settings you change in the app are kept and only the keys declared in Nix are
 overwritten. Removing a key from the Nix config removes it from the file on the
 next rebuild. Nix wins on every activation, so for the keys it manages, edit the
-Nix config and rebuild rather than using Look's in-app Save Config button. The
+Nix config and rebuild rather than using Niri-Search's in-app Save Config button. The
 first activation copies the pre-Nix file to `~/.look.config.hm-backup`. See
 `apps/linows/BUILDING.md` for the full option list.
 
@@ -413,21 +388,17 @@ Backend-related keys:
 
 File-only settings (no Settings UI):
 
-These keys have no control in the Settings screens. Edit `~/.look/config` directly, then reload with `Cmd+Shift+;` (macOS) or `Ctrl+Shift+;` (Linux/Windows), or restart Look. Out-of-range or unparseable values fall back to the listed default. More keys will be added here over time.
+These keys have no control in the Settings screens. Edit `~/.look/config` directly, then reload with `Ctrl+Shift+;`, or restart Niri-Search. Out-of-range or unparseable values fall back to the listed default. More keys will be added here over time.
 
 - `clipboard_history_limit` (clipboard history size, range 10 to 100, default 10)
 
 - `ignored_patterns_<group>` uses gitignore-style path glob syntax: `*`, `**`, `?`, `[abc]`
-  - macOS/Linux normally use `/` paths like `~/Library/...` or `/home/name/...`
-  - Windows is verified with native absolute paths like `C:\Users\me\...`; `~` is expanded against your home directory before matching
-  - macOS works the same way; common roots are `~/Library/...`, `~/Documents/...`, `~/Downloads/...`
+  - use `/` paths like `/home/name/...`; `~` is expanded against your home directory before matching
   - values are separated with `|`, and all `ignored_patterns_*` entries are merged together
   - patterns apply to files only; they do not exclude folders from traversal
 
   Examples:
-  - `ignored_patterns_macos=~/Library/Application Support/Code/logs/**/*.log|~/Library/Caches/**/*.tmp`
-  - `ignored_patterns_windows=C:\Users\me\AppData\Local\Temp\**\*.etl|C:\Users\me\Downloads\**\*.tmp`
-  - `ignored_patterns_browser=~/AppData/Local/BraveSoftware/**/*.log|~/AppData/Local/Google/Chrome/**/*.tmp`
+  - `ignored_patterns_logs=~/.cache/**/*.log|~/.local/share/Trash/**/*.log`
   - `ignored_patterns_sqlite=~/Documents/git/project/**/*.db-wal|~/Documents/git/project/**/*.db-shm`
   - `ignored_patterns_temp=~/Downloads/*.tmp|~/Downloads/**/*.part`
 
@@ -460,63 +431,57 @@ Fresh config reset behavior:
 
 - `Create Fresh Config` replaces the current config file with the latest default template
 - reset uses the active config path (`LOOK_CONFIG_PATH` when set, otherwise `~/.look/config`)
-- existing custom values are replaced during this reset flow (use manual edit + `Cmd+Shift+;` if you only want partial changes)
+- existing custom values are replaced during this reset flow (use manual edit + `Ctrl+Shift+;` if you only want partial changes)
 
 UI-related keys include the `ui_*` group (tint/blur/font/border values).
 
-Note: `Settings Blur` is stored as local app UI state (UserDefaults) and is not written to `~/.look/config`.
+Note: `Settings Blur` is stored as local app UI state and is not written to `~/.look/config`.
 
 ## Keyboard shortcuts (quick reference)
 
 - `Enter`: open selected result / run command
 - `Tab` / `Shift+Tab`: next/previous result (app list) or command (command mode)
 - `Up` / `Down`: move selection (and in `kill`, move process selection)
-- `Cmd+/`: command mode
+- `Ctrl+/`: command mode
 - `:cmd` (e.g. `:calc 2+2`, `:kill chrome`, `:sys`, `:todo`, `:speed`): jump to a command directly from the home screen
-- `Cmd+1`..`Cmd+7`: in command mode, direct command switch (`calc`, `pomo`, `todo`, `speed`, `kill`, `shell`, `sys`)
-- `Cmd+1`..`Cmd+9` (macOS) / `Alt+1`..`Alt+9` (Linux, Windows): on the home screen, activate the running-app whose badge shows that digit, when `Running Apps` is on. Badge labels are ergonomic, not strictly positional - see Settings → Appearance → Running Apps
-- `Option+Up` / `Option+Down` in AI mode (`>`): walk your recent prompts, like a shell history. `Shift+Up` / `Shift+Down` select text in the message instead
+- `Ctrl+1`..`Ctrl+7`: in command mode, direct command switch (`calc`, `pomo`, `todo`, `speed`, `kill`, `shell`, `sys`)
+- `Alt+1`..`Alt+9`: on the home screen, activate the running-app whose badge shows that digit, when `Running Apps` is on. Badge labels are ergonomic, not strictly positional - see Settings → Appearance → Running Apps
 - `Shift+Enter` in AI mode (`>`): new line in the message instead of sending. The box grows to 6 lines and stops there. Elsewhere `Shift+Enter` still opens all picked files
-- `join` (or `join meeting`, `join my next meeting`, or `join <meeting name>`): pins a "Join <meeting>" row for the next Teams / Zoom / Meet / Webex / Jitsi / GoToMeeting / Whereby meeting in your calendar; Enter opens the link. Works in the main bar and in `>` AI mode. Looks two days ahead. Needs the account in macOS Calendar (System Settings → Internet Accounts), since Look reads the OS's calendar and makes no network call of its own
-- `call <name>` / `facetime <name>` / `message <name>` in AI mode (`>`): finds the person in Contacts and opens FaceTime or Messages. `call mom on iphone` dials through your iPhone. A bare `call` means FaceTime audio, the one that works with no iPhone nearby. Look always lists what it found first; `Enter` on the highlighted row places the call
-- `Cmd+D` in AI mode (`>`): delete the highlighted conversation (same as `Cmd+Delete`; undo from the banner with `Cmd+Z`)
-- `Cmd+H` in AI mode (`>`): open the help screen on its **AI** topic without leaving the conversation. `Cmd+H`, `Esc`, or typing returns to it. The help screen's topic capsules (All / Main / AI / Prefixes / Command) also switch by click
-- `Cmd+1`..`Cmd+9` and `Cmd+0` in AI mode (`>`): open the listed conversation carrying that chip (`Cmd+0` is the tenth). The running-apps row is hidden on the AI screen, so the digits mean sessions there, and `Cmd+0` opens the tenth session rather than resetting the UI scale while the list is up. The list stops at ten because a `Cmd` chord is a single keypress; older conversations are found by typing, then Tab/arrows and Enter
-- `Cmd+<letter>` (macOS) / `Alt+<letter>` (Linux, Windows): on the empty home screen, fire the super action with that highlighted letter (`B` Bluetooth, `W` Wi-Fi, `T` Theme, `K` Keep Awake, `S` Screensaver, `M` Mic, `P` play/pause, `R` Restart, `D` Shut Down), when `Super Actions` is on
+- `join` (or `join meeting`, `join my next meeting`, or `join <meeting name>`): pins a "Join <meeting>" row for the next meeting in your connected calendar; `Enter` opens the link. Calendar accounts are not available on Linux, so `join` has no meetings to read there.
 - `Space` / `R` / `P` (inside `/pomo`): start/pause session, reset, toggle music play/pause
-- `Cmd+N` / `Cmd+S` (inside `/todo`): switch Tasks/Stats page, save changes
+- `Ctrl+N` / `Ctrl+S` (inside `/todo`): switch Tasks/Stats page, save changes
 - `R` / `E` (inside `/speed`): run the test again, show or hide the public address
 - `Escape`: back/close (context dependent)
 - `Shift+Escape`: hide launcher
-- `Cmd+Enter`: web search
-- `Cmd+F`: reveal in Finder
-- `Cmd+C`: copy selected file/folder
-- `Cmd+P` / `Cmd+Shift+P`: toggle pick / clear picked set
-- `Cmd+D`: remove the selected clipboard history item; otherwise move selected file/folder (or picked items) to Trash, or empty the pinned Trash folder
-- `Cmd+Shift+,`: toggle settings panel
-- `Cmd+Shift+;` (macOS) / `Ctrl+Shift+;` (Linux, Windows): reload config, and re-read your declared sources
-- `Cmd+Shift+H`: hide the selected app from Look
-- `Cmd+-`, `Cmd+=`, `Cmd+0`: temporary UI zoom out/in/reset
+- `Ctrl+Enter`: web search
+- `Ctrl+F`: reveal in the file manager
+- `Ctrl+C`: copy selected file/folder
+- `Ctrl+P` / `Ctrl+Shift+P`: toggle pick / clear picked set
+- `Ctrl+D`: remove the selected clipboard history item; otherwise move selected file/folder (or picked items) to Trash, or empty the pinned Trash folder
+- `Ctrl+Shift+,`: toggle settings panel
+- `Ctrl+Shift+;`: reload config, and re-read your declared sources
+- `Ctrl+Shift+H`: hide the selected app from Niri-Search
+- `Ctrl+-`, `Ctrl+=`, `Ctrl+0`: temporary UI zoom out/in/reset
 
 ## Troubleshooting
 
 **Results seem stale or a newly installed app is missing.**
 
-- reload config with `Cmd+Shift+;`
-- if lazy indexing is Off, Look reindexes on every launcher open; if On, it reindexes only when filesystem changes are detected
+- reload config with `Ctrl+Shift+;`
+- if lazy indexing is Off, Niri-Search reindexes on every launcher open; if On, it reindexes only when filesystem changes are detected
 - check scan roots, depth, and limits in `~/.look/config`
 - add user-specific directories via `file_scan_extra_roots`
 
-**`Cmd+Space` does not open Look.**
+**`Alt+Space` does not open Niri-Search.**
 
-- confirm Spotlight's `Cmd+Space` is disabled or rebound (`System Settings > Keyboard > Keyboard Shortcuts > Spotlight`)
-- relaunch Look (`open "/Applications/Look.app"`) after changing the Spotlight binding
-- if you previously ran a dev/side-by-side build, make sure only one Look instance is running
+- confirm the bind exists in your Niri config (`~/.config/niri/config.kdl`) and no other bind claims `Alt+Space` - niri rejects the whole config on a duplicate, keeping the last good one, so check with `niri validate`
+- make sure only one Niri-Search instance is running (`pgrep -x lookapp` should print one PID); a second copy holds the single-instance lock and its toggle calls go nowhere
+- after editing the Niri config, the compositor picks it up automatically; if in doubt, `niri msg action load-config-file` forces a reload
 
 **The launcher opens behind another window.**
 
 - this is usually a focus-handoff timing issue; hide the launcher (`Escape`) and open it again
-- if it reproduces consistently, please file an issue with your macOS version
+- if it reproduces consistently, please file an issue with your distro, compositor, and Niri-Search version
 
 **High CPU or slow first launch.**
 
@@ -525,7 +490,7 @@ Note: `Settings Blur` is stored as local app UI state (UserDefaults) and is not 
 
 **A config change was ignored.**
 
-- Look reads `~/.look/config` at launch. After editing manually, reload with `Cmd+Shift+;` or restart Look.
+- Niri-Search reads `~/.look/config` at launch. After editing manually, reload with `Ctrl+Shift+;` or restart Niri-Search.
 - confirm you edited the active config path (`LOOK_CONFIG_PATH` overrides `~/.look/config` when set)
 
 **Translation (`t"` / `tw"`) returns no results.**
@@ -546,24 +511,24 @@ Note: `Settings Blur` is stored as local app UI state (UserDefaults) and is not 
 
 ## Uninstall
 
-Homebrew:
-
 ```bash
-brew uninstall --cask look
-brew untap kunkka19xx/tap   # optional
+# Debian/Ubuntu
+sudo dpkg -r niri-search
+
+# Fedora/RHEL/openSUSE
+sudo dnf remove niri-search   # or: sudo zypper remove niri-search
 ```
 
-Manual install:
+Or via the installer:
 
 ```bash
-rm -rf "/Applications/Look.app"
+curl -fsSL https://raw.githubusercontent.com/Lunga93/Niri-search/main/scripts/linux/install-niri-search.sh | bash -s -- --uninstall
 ```
 
 Remove local state (optional - includes config, your declared sources, index, and usage history):
 
 ```bash
 rm -rf "$HOME/.look"
-rm -rf "$HOME/Library/Application Support/look"
 rm -f "$HOME/.look.config"   # only if a pre-0.6 config was left behind
 ```
 

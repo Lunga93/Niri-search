@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicoverbruggen/tauri-v2-schema/main/schema.json",
-  "productName": "Look",
+  "productName": "Niri-Search",
   "version": "0.1.0",
   "identifier": "com.look.desktop",
   "build": {
@@ -12,7 +12,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
-        "title": "Look",
+        "title": "Niri-Search",
         "width": 860,
         "height": 600,
         "decorations": false,
@@ -38,7 +38,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["deb", "appimage", "nsis"],
+    "targets": ["deb", "rpm"],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -47,8 +47,8 @@
       "icons/icon.ico"
     ],
     "category": "Utility",
-    "shortDescription": "Keyboard-first desktop launcher",
-    "longDescription": "Look is a keyboard-first, local-first desktop launcher. Find and open apps, files, folders, clipboard history, and run quick commands without leaving the keyboard.",
+    "shortDescription": "Keyboard-first launcher for the Niri compositor",
+    "longDescription": "Niri-Search is a keyboard-first, local-first launcher built for Niri. Find and open apps, files, folders, clipboard history, and run quick commands without leaving the keyboard.",
     "linux": {
       "deb": {
         "depends": [
@@ -64,22 +64,25 @@
           "libasound2",
           "xdg-desktop-portal"
         ],
-        "recommends": [
-        "libgtk-layer-shell0"
-      ],
-      "section": "utils",
+        "recommends": ["libgtk-layer-shell0"],
+        "section": "utils",
         "priority": "optional"
-      }
-    },
-    "windows": {
-      "nsis": {
-        "installMode": "currentUser",
-        "installerIcon": "icons/icon.ico",
-        "displayLanguageSelector": false,
-        "languages": ["English"]
       },
-      "webviewInstallMode": {
-        "type": "embedBootstrapper"
+      "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3",
+          "libsoup3",
+          "glib2",
+          "cairo",
+          "pango",
+          "gdk-pixbuf2",
+          "harfbuzz",
+          "dbus-libs",
+          "alsa-lib",
+          "xdg-desktop-portal"
+        ],
+        "recommends": ["gtk-layer-shell"]
       }
     }
   },

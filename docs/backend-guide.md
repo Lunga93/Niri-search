@@ -11,8 +11,7 @@ Use this guide when you are changing:
 - indexing scope and discovery behavior,
 - matching/ranking quality,
 - SQLite persistence semantics,
-- web answers / translation lookups (`core/answers`),
-- FFI payloads between Swift and Rust.
+- web answers / translation lookups (`core/answers`).
 
 ## Module map (edit targets)
 
@@ -33,7 +32,7 @@ Use this guide when you are changing:
 - `core/answers/src/lib.rs`: public entry points (`instant_answer`, `has_match`, suggestions, `translate`).
 - `core/answers/src/sources/`: per-provider lookups (`currency.rs`, `weather.rs`, `crypto.rs`, `knowledge.rs`, `suggest.rs`).
 - `core/answers/src/http.rs`: blocking `curl` subprocess transport (no async runtime).
-- `core/answers/src/translate.rs`: translation logic behind the FFI/Tauri translate endpoints.
+- `core/answers/src/translate.rs`: translation logic behind the Tauri translate endpoints.
 - Keep entry points best-effort and panic-free: return "no answer" on any failure.
 
 ### `core/storage`
@@ -49,17 +48,13 @@ Use this guide when you are changing:
 - `core/todo/src/lib.rs`: `TodoStore` (open/list/save/prune) over the `todo_tasks` table in the app's `look.db`; the JSON task shape is pinned by tests since both app shells decode it.
 - `core/todo/examples/seed.rs`: seeds demo task history into a database (`dev` target by default: the `look.dev.db` file that dev builds read automatically).
 
-### `bridge/ffi`
+### `apps/linows/src-tauri/src` (shell backend)
 
-- `bridge/ffi/src/lib.rs`: exported C ABI.
-- `bridge/ffi/src/state.rs`: engine cache and cstring lifecycle.
-- `bridge/ffi/src/search_api.rs`: search endpoints.
-- `bridge/ffi/src/usage_api.rs`: usage recording endpoint.
-- `bridge/ffi/src/translate_api.rs`: translation endpoint + typed errors.
-- `bridge/ffi/src/answers_api.rs`: instant/web answer endpoints (C ABI over `look_answers`).
-- `bridge/ffi/src/seed_api.rs`: seed externally-discovered candidates (e.g. Windows UWP apps) into storage.
-- `bridge/ffi/src/todo_api.rs`: todo list/save endpoints (JSON over C ABI, backed by `core/todo`).
-- `bridge/ffi/src/runtime_config.rs`: config loading + runtime toggles.
+- `main.rs`: entry point, plugin registration, D-Bus toggle service.
+- `commands.rs`: Tauri commands (search, open, reveal, window, quit) calling the core engine directly - no FFI layer.
+- `state.rs`: engine cache and the scoped-refresh file watcher.
+- `config.rs`: `~/.look/config` persistence.
+- `platform/linux/`: icons, WM detection, Wayland shortcuts, compositor blur, autostart.
 
 ## Common change recipes
 
@@ -81,12 +76,11 @@ Use this guide when you are changing:
 2. Keep migration compatibility explicit.
 3. Re-check bootstrap and cache refresh flow in `core/engine/src/lib.rs`.
 
-### Change FFI contract
+### Change the shell command surface
 
-1. Add/update endpoint in `bridge/ffi/src/*_api.rs`.
+1. Add/update the command in `apps/linows/src-tauri/src/commands.rs`.
 2. Keep error payloads structured and stable.
-3. Ensure string allocation/free paths remain balanced (`look_free_cstring`).
-4. Coordinate corresponding Swift bridge updates.
+3. Add the matching wrapper in `apps/linows/src/js/ipc.js`.
 
 ## Runtime config keys (backend-relevant)
 
@@ -96,8 +90,6 @@ Runtime file: `~/.look/config` (or `LOOK_CONFIG_PATH`).
 - `file_scan_roots`, `file_scan_extra_roots`, `file_scan_depth` (default: 4, range: 1-12), `file_scan_limit` (default: 4000, range: 500-50000), `file_exclude_paths`
 - `skip_dir_names`
 - `lazy_indexing_enabled` (default: true) - when true, launcher-open refresh runs only when the index is dirty
-- `localized_app_names` (default: false, macOS 15.4+) - when true, resolves localized display names for apps and System Settings entries at index time via Foundation bundle metadata. Apps take the localized name as their title; settings panes render as `<localized> (<English>)` so English queries keep reaching them. Older macOS versions and other platforms keep the non-localized names.
-  - Cost: measured on a 134-app machine, the app+settings index pass goes from ~3 ms to ~35 ms on the first run, then ~10 ms once Foundation's bundle cache is warm. The per-bundle Info.plist reads are spread over a small thread pool, which is what keeps the first run cheap. This runs at index time, not per keystroke. Foundation retains that metadata for the process lifetime, so memory grows with the size of the app catalog.
 - `backend_log_level`
 - `launch_at_login`
 
@@ -114,31 +106,28 @@ Behavior:
 
 ```bash
 cd core && cargo check --workspace
-cd ../bridge/ffi && cargo check
 ```
 
 ### Test checks
 
 ```bash
 cargo test --workspace --manifest-path core/Cargo.toml
-cargo test --manifest-path bridge/ffi/Cargo.toml
 ```
 
 ### App-level smoke check
 
-Run the app with `make app-run` (see [DEVELOPMENT.md](../DEVELOPMENT.md#building-and-running) for per-platform behavior and the macOS side-by-side `make app-run-dev` build), then validate:
+Run the app with `cd apps/linows && cargo tauri dev` (see [DEVELOPMENT.md](../DEVELOPMENT.md#building-and-running)), then validate:
 
 - search returns expected results,
 - usage events update ranking after opening items,
-- config reload (`Cmd+Shift+;`) applies expected runtime changes,
+- config reload (`Ctrl+Shift+;`) applies expected runtime changes,
 - lazy indexing mode behavior:
-  - `lazy_indexing_enabled=true`: `Cmd+Space` refreshes only when dirty,
-  - `lazy_indexing_enabled=false`: `Cmd+Space` always requests background refresh.
+  - `lazy_indexing_enabled=true`: `Alt+Space` refreshes only when dirty,
+  - `lazy_indexing_enabled=false`: `Alt+Space` always requests background refresh.
 
 ## Reliability rules
 
 - keep tunables in config, not scattered literals,
 - keep indexing logic inside `index/*`,
-- keep FFI narrow and backward-safe,
 - propagate actionable errors across boundaries,
 - prefer predictable bounded work in query-time paths.

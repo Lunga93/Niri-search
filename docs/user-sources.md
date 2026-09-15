@@ -1,14 +1,14 @@
 # Your Own Sources
 
-Look indexes apps, files, and System Settings out of the box. **Sources** are how you add your own rows: your git repos, your SSH hosts, your morning routine, your deploy script. You declare them in a small TOML file, they show up in the same list as everything else, and they rank by how often you use them.
+Niri-Search indexes apps, files, and System Settings out of the box. **Sources** are how you add your own rows: your git repos, your SSH hosts, your morning routine, your deploy script. You declare them in a small TOML file, they show up in the same list as everything else, and they rank by how often you use them.
 
 No plugin to install, no API to learn. One directory, one file format, four keys to remember.
 
 **In a hurry?** [lookbook](https://github.com/kunkka19xx/lookbook) is a collection of ready-made sources: git branches, SSH hosts, docker containers, project folders. Copy one in, reload, done. Come back here when you want to change it.
 
-> **Needs Look v0.6.12 or newer.** Earlier builds do not read `~/.look/sources/`, so nothing in this guide applies to them. 0.6.12 is not released yet: build from `main` ([DEVELOPMENT.md](../DEVELOPMENT.md)) to use sources today.
+> **Needs Niri-Search v0.6.12 or newer.** Earlier builds do not read `~/.look/sources/`, so nothing in this guide applies to them. 0.6.12 is not released yet: build from `main` ([DEVELOPMENT.md](../DEVELOPMENT.md)) to use sources today.
 
-> **Platform note.** Sources work identically on macOS, Linux, and Windows: same directory, same format, same parser. Shortcuts are written here with macOS modifiers, so read `Cmd` as `Ctrl` on Linux and Windows. And the example commands are macOS ones, so `open -a Slack` becomes whatever launches Slack on your system, and `open {path}` becomes `xdg-open {path}` on Linux.
+> **Platform note.** Sources are Linux-only here: same directory, same format, same parser everywhere. Shortcuts are `Ctrl`-based, and the example commands are shell text - `xdg-open {path}` opens a path in its default app, a bare binary name (`firefox https://github.com`) runs it from `PATH`.
 
 - [Start here](#start-here)
 - [How a file is organised](#how-a-file-is-organised)
@@ -51,12 +51,12 @@ No plugin to install, no API to learn. One directory, one file format, four keys
    [work]
    name = "Work setup"
    do = [
-     "open -a Slack",
-     "open -a Safari https://github.com",
+     "slack",
+     "firefox https://github.com",
    ]
    ```
 
-3. Reload Look: `Cmd+Shift+;` (macOS) or `Ctrl+Shift+;` (Linux, Windows).
+3. Reload Niri-Search: `Ctrl+Shift+;`.
 
 Type `projects` and your repos are there. Type `work setup` and one Enter opens both apps.
 
@@ -80,13 +80,13 @@ Three things to know:
 
 - **The header is the block id.** It namespaces the block's rows, its usage history, and its cache. Keep it short and stable. Renaming it loses that block's ranking history. It cannot contain `:`.
 - **Nothing is file-wide.** There are no global settings at the top of a file. Every block stands alone, so you can move one between files freely.
-- **One file or many, it makes no difference.** Look reads every `.toml` in the directory and merges them. See [As many files as you like](#as-many-files-as-you-like).
+- **One file or many, it makes no difference.** Niri-Search reads every `.toml` in the directory and merges them. See [As many files as you like](#as-many-files-as-you-like).
 
 Each block needs exactly **one producer key**, which is what says what kind of block it is. That is the only decision you have to make.
 
 ## As many files as you like
 
-There is no main file and no index to keep up to date. Look reads **every** `.toml` in `~/.look/sources/` and merges them into one set of blocks, so the file names are purely for your own benefit:
+There is no main file and no index to keep up to date. Niri-Search reads **every** `.toml` in `~/.look/sources/` and merges them into one set of blocks, so the file names are purely for your own benefit:
 
 ```
 ~/.look/sources/
@@ -108,7 +108,7 @@ Two things are shared across all of them:
 - **Block ids must be unique across the whole directory**, not just per file. Two `[projects]` blocks in two files are a collision: only the first is loaded and the other is reported as a duplicate. The id namespaces the block's rows, its usage history, and its cache, so two blocks answering to one id would quietly share all three. Files are read in alphabetical order, so the winner is the one in the alphabetically-first file, and a `.toml` block always beats an executable of the same name.
 - **Nothing in a file can depend on another file being read first.** That is exactly why nothing is file-wide: every block stands alone, so where you put it never changes what it does.
 
-Keeping your sources in a dotfiles repo works the way you would expect: point `LOOK_SOURCES_DIR` at the directory in the repo, or symlink `~/.look/sources` to it. Look reads through symlinks.
+Keeping your sources in a dotfiles repo works the way you would expect: point `LOOK_SOURCES_DIR` at the directory in the repo, or symlink `~/.look/sources` to it. Niri-Search reads through symlinks.
 
 ## The four kinds of block
 
@@ -128,9 +128,9 @@ Declaring two of them in one block is an error. Pick one and the block is unambi
 name = "Work setup"
 icon = "🚀"
 do = [
-  "open -a Slack",
-  "open -a Ghostty",
-  "open -a Safari https://github.com",
+  "slack",
+  "ghostty",
+  "firefox https://github.com",
 ]
 ```
 
@@ -146,7 +146,7 @@ depth = 1                       # 1 = immediate children only
 only  = "dirs"                  # dirs | files | all
 ```
 
-The rows are **real files and folders**, so everything Look already does to a file keeps working on them: preview, reveal, copy path, open with your editor.
+The rows are **real files and folders**, so everything Niri-Search already does to a file keeps working on them: preview, reveal, copy path, open with your editor.
 
 - `depth = 1` is the immediate children. `depth = 2` also includes their children, and so on.
 - Hidden entries (names starting with `.`) are always skipped.
@@ -204,7 +204,7 @@ If the command fails, times out, or prints nothing, **the rows it produced last 
 | `name` | string | the block id | What you type to find the rows, and what the panel shows |
 | `aliases` | list of strings | none | Extra words that also find this block's rows |
 | `bias` | integer | `0` | Score offset. Negative sits below apps and files, positive above |
-| `icon` | string | none | Emoji, SF Symbol name, or an image path |
+| `icon` | string | none | Emoji or an image path |
 | `enabled` | bool | `true` | `false` keeps the file but stops loading the block |
 | `preview` | string | none | Command run for the selected row, in that row's folder; its output fills the right panel. Fixed 5s timeout |
 | `confirm` | string | none | Yes/no question asked before the block does anything |
@@ -228,9 +228,9 @@ If the command fails, times out, or prints nothing, **the rows it produced last 
 | `timeout` | duration string | `run` | `30s`, `5m`, `1h`, `2d`. Default 5s, capped at 30s |
 | `format` | `lines` \| `json` | `file`, `run` | Default `lines` |
 
-A leading `~` in any path key (`dir`, `dirs`, `file`, `cwd`, `icon`, and a JSON row's `path`) is your home directory, on every platform: Look resolves those itself. A `~` anywhere else in the value is left alone, because it is a legal character in a filename.
+A leading `~` in any path key (`dir`, `dirs`, `file`, `cwd`, `icon`, and a JSON row's `path`) is your home directory, on every platform: Niri-Search resolves those itself. A `~` anywhere else in the value is left alone, because it is a legal character in a filename.
 
-Keys Look does not recognise are reported and ignored, never fatal: a file written for a newer version still loads on an older one.
+Keys Niri-Search does not recognise are reported and ignored, never fatal: a file written for a newer version still loads on an older one.
 
 ## Placeholders
 
@@ -248,7 +248,7 @@ Every command a block declares expands against the selected row: `do` steps, the
 Three rules worth internalising:
 
 - **Never quote a placeholder yourself.** Every value is shell-escaped on substitution. `open {path}` handles a folder called `My Project` correctly, and a row titled `; rm -rf ~` is inert. Writing `open "{path}"` gives you a doubly quoted path that will not resolve.
-- **A block whose producer mentions a placeholder is not a top-level row.** `do = ["make -C {path} deploy"]` only means something against a selected project, so Look keeps it out of the main index and reaches it only through another block's [`then`](#chaining-blocks-with-then). A block with no placeholder (`do = ["open -a Slack"]`) is a row you can type for directly. The producer is the `do` / `dir` / `file` / `run` line **and its `cwd`**, since `run = "npm test"` with `cwd = "{path}"` is the same block as `run = "npm --prefix {path} test"`. The verbs and `preview` do not count: those already act on a row this block produced.
+- **A block whose producer mentions a placeholder is not a top-level row.** `do = ["make -C {path} deploy"]` only means something against a selected project, so Niri-Search keeps it out of the main index and reaches it only through another block's [`then`](#chaining-blocks-with-then). A block with no placeholder (`do = ["slack"]`) is a row you can type for directly. The producer is the `do` / `dir` / `file` / `run` line **and its `cwd`**, since `run = "npm test"` with `cwd = "{path}"` is the same block as `run = "npm --prefix {path} test"`. The verbs and `preview` do not count: those already act on a row this block produced.
 - **A producer counts one level differently from a command.** When you drill into a block, the row you came from *is* the row while its rows are being produced, so its `dir` / `file` / `run` line says `{path}`. The commands that then act on a row it produced (`open`, `preview`, the verbs, a `then` target's steps) act on the produced row, so *there* the row you came from is `{parent.path}`. The [`then` example below](#chaining-blocks-with-then) shows both in one block.
 
 Steps also see the row in their environment, for [a script that would rather read a variable](#point-a-block-at-your-own-script) than take an argument: `LOOK_ID`, `LOOK_TITLE`, `LOOK_PATH`.
@@ -262,9 +262,9 @@ Four verbs have one key each across the whole app, so the same chord means the s
 | Verb | Key | Meaning |
 | --- | --- | --- |
 | `open` | `Enter` | The main action |
-| `edit` | `Cmd+E` / `Ctrl+E` | Open in your editor |
-| `terminal` | `Cmd+T` / `Ctrl+T` | Open a terminal there |
-| `reveal` | `Cmd+F` / `Ctrl+F` | Show in Finder / Files |
+| `edit` | `Ctrl+E` | Open in your editor |
+| `terminal` | `Ctrl+T` | Open a terminal there |
+| `reveal` | `Ctrl+F` | Show in the file manager |
 
 Declare only what differs from your global preferred tools in `~/.look/config`:
 
@@ -279,14 +279,14 @@ terminal = "tmux new-session -As {title} -c {path}"
 The rule for `Enter`:
 
 1. If the block declares `open`, that runs.
-2. Otherwise, if the row has a path, the path opens the way any file in Look opens. This is why most `dir` blocks declare no verbs at all.
-3. Otherwise nothing can happen, and Look says so.
+2. Otherwise, if the row has a path, the path opens the way any file in Niri-Search opens. This is why most `dir` blocks declare no verbs at all.
+3. Otherwise nothing can happen, and Niri-Search says so.
 
 A `do` block cannot declare verbs. It already *is* the action, and a second meaning for `Enter` would be one meaning too many.
 
 ## Chaining blocks with `then`
 
-`then` lists other blocks a picked row can reach. Press `Cmd+K` / `Ctrl+K` (or `Cmd+J`) on a row to open the action menu, `Cmd+J` / `Cmd+K` or the arrows to move, `Enter` to run, `Esc` to close.
+`then` lists other blocks a picked row can reach. Press `Ctrl+K` on a row to open the action menu, the arrows to move, `Enter` to run, `Esc` to close.
 
 The target's own producer decides what happens, so `then` is a plain list of names with no mode to declare:
 
@@ -310,7 +310,7 @@ run  = "git -C {path} branch --format='%(refname:short)'"
 open = "git -C {parent.path} switch {id}"
 ```
 
-Look at `[branches]` twice, because this is the one thing that trips people up:
+Niri-Search at `[branches]` twice, because this is the one thing that trips people up:
 
 - `run` is the **producer**. It is asked for rows while the project is still the selected row, so `{path}` is the project.
 - `open` acts on a **branch row** that `run` produced. That row's parent is the project, so the project is `{parent.path}` and the branch is `{id}`.
@@ -352,11 +352,11 @@ Tab separated on purpose: a naive `ls` or `awk` one-liner is already a valid sou
 
 ### `json`
 
-Set `format = "json"` for the two fields tabs cannot carry: `path`, which makes a row a real filesystem object (so `Cmd+E`, `Cmd+T`, `Cmd+F`, and `{path}` all work), and a per-row `icon`.
+Set `format = "json"` for the two fields tabs cannot carry: `path`, which makes a row a real filesystem object (so `Ctrl+E`, `Ctrl+T`, `Ctrl+F`, and `{path}` all work), and a per-row `icon`.
 
 ```json
 [
-  {"id": "look", "title": "Look", "subtitle": "3 uncommitted", "path": "~/dev/look"}
+  {"id": "look", "title": "Niri-Search", "subtitle": "3 uncommitted", "path": "~/dev/look"}
 ]
 ```
 
@@ -366,9 +366,9 @@ Set `format = "json"` for the two fields tabs cannot carry: `path`, which makes 
 | `title` | no | Defaults to the id |
 | `subtitle` | no | Defaults to the block name |
 | `path` | no | Makes the row a filesystem object |
-| `icon` | no | Emoji, SF Symbol name, or an image path. Beats the block's icon |
+| `icon` | no | Emoji or an image path. Beats the block's icon |
 
-Three shapes are accepted, whichever your tool already prints: one top-level array, one object per line, or pretty-printed objects run together. A bare string in the array is a row, like a bare line. Keys Look does not know are ignored, so you can pipe richer output through untouched.
+Three shapes are accepted, whichever your tool already prints: one top-level array, one object per line, or pretty-printed objects run together. A bare string in the array is a row, like a bare line. Keys Niri-Search does not know are ignored, so you can pipe richer output through untouched.
 
 Use a row `icon` when the rows are not alike (a favicon per history entry, a status glyph per deploy) and the block's `icon` when they are. An image path that does not exist is drawn as its own text, so write the file before naming it.
 
@@ -384,15 +384,15 @@ EOF
 chmod +x ~/.look/sources/repos
 ```
 
-Look treats it as a `run` block whose id and name are the file name, and everything else is a default. This is the fastest way to try an idea: if it later needs a `then`, an `open`, or a `preview`, add a `.toml` block that names the script in `run`.
+Niri-Search treats it as a `run` block whose id and name are the file name, and everything else is a default. This is the fastest way to try an idea: if it later needs a `then`, an `open`, or a `preview`, add a `.toml` block that names the script in `run`.
 
-Files that are neither executable nor `.toml` are ignored, and Look says why rather than staying silent about them.
+Files that are neither executable nor `.toml` are ignored, and Niri-Search says why rather than staying silent about them.
 
 ## Your shell, and your shell config
 
 Every command a block declares is **shell text**, run by your own shell. Not a bare `execve` with an argument list: `&&`, `|`, `>`, `$VAR`, and globs all mean what they mean in a terminal.
 
-On Unix that is `$SHELL -lc "<your command>"`, a **login** shell. That matters more than it sounds. A launcher is started by the window server, not from a terminal, so it inherits a nearly empty environment: no `$EDITOR`, no `$TERMINAL`, and a `PATH` with no Homebrew, no nvm, no `~/.local/bin`. Without the login flag, a command that works when you paste it into a terminal would fail here with a "command not found" you could not explain.
+On Unix that is `$SHELL -lc "<your command>"`, a **login** shell. That matters more than it sounds. A launcher is started by the compositor, not from a terminal, so it inherits a nearly empty environment: no `$EDITOR`, no `$TERMINAL`, and a `PATH` with no `~/.local/bin`, no nvm. Without the login flag, a command that works when you paste it into a terminal would fail here with a "command not found" you could not explain.
 
 ### Which of your shell files actually get read
 
@@ -406,14 +406,14 @@ A login, non-interactive shell does not read your interactive rc file. Concretel
 So if a `PATH` entry, an alias, or a shell function lives in `~/.zshrc` and your block cannot find it, that is why. Three ways out, in the order worth trying:
 
 1. Move the `export PATH=...` into `~/.zshenv` or `~/.zprofile`, where it belongs anyway. Interactive-only things (prompt, completions) stay in `~/.zshrc`.
-2. Call the thing by its full path in the block: `run = "/opt/homebrew/bin/gh run list"`.
+2. Call the thing by its full path in the block: `run = "/usr/bin/gh run list"`.
 3. Source what you need in the step itself: `do = ["source ~/.zshrc && my_function {path}"]`.
 
-Shell **functions** and **aliases** are worth a word of their own. A function defined in a file the login shell reads is callable straight from a block, exactly like a command. An alias usually is not: aliases are an interactive-shell feature, and a non-interactive shell expands them only if `shopt -s expand_aliases` (bash) is set in a file it reads. If you want it from Look, make it a function or a script.
+Shell **functions** and **aliases** are worth a word of their own. A function defined in a file the login shell reads is callable straight from a block, exactly like a command. An alias usually is not: aliases are an interactive-shell feature, and a non-interactive shell expands them only if `shopt -s expand_aliases` (bash) is set in a file it reads. If you want it from Niri-Search, make it a function or a script.
 
 ### If you use fish, nu, or another non-POSIX shell
 
-Look honours `$SHELL` only when it names a shell that can read POSIX text: `sh`, `bash`, `dash`, `ash`, `zsh`, `ksh`, `ksh93`, `mksh`, `yash`. Anything else, including **fish** and **nushell**, falls back to `/bin/sh`.
+Niri-Search honours `$SHELL` only when it names a shell that can read POSIX text: `sh`, `bash`, `dash`, `ash`, `zsh`, `ksh`, `ksh93`, `mksh`, `yash`. Anything else, including **fish** and **nushell**, falls back to `/bin/sh`.
 
 This is deliberate. `fish -lc` accepts the flags perfectly well and then rejects the script, so honouring it would turn every block into a syntax error. What it means for you:
 
@@ -436,7 +436,7 @@ name = "Deploy"                     # because it names {path}
 do   = ["~/bin/deploy.sh {path} --confirm"]
 ```
 
-The `~` in those commands is expanded by your shell, the same as in a terminal. The path keys are different, and take `~` on every platform, because Look resolves those itself before the OS sees them.
+The `~` in those commands is expanded by your shell, the same as in a terminal. The path keys are different, and take `~` on every platform, because Niri-Search resolves those itself before the OS sees them.
 
 Your script can be in any language with a shebang, and it can read the row from its environment instead of taking arguments, which is often tidier:
 
@@ -459,7 +459,7 @@ If the script needs no options at all, you do not even need the TOML: [drop it s
 
 | Command | Working directory |
 | --- | --- |
-| A `do` step, and a verb | The selected row's folder, meaning its parent when the row is a file. A row with no path (a bundle, a `file` row) leaves it at Look's own working directory, so do not rely on it |
+| A `do` step, and a verb | The selected row's folder, meaning its parent when the row is a file. A row with no path (a bundle, a `file` row) leaves it at Niri-Search's own working directory, so do not rely on it |
 | `preview` | The selected row's folder |
 | A `run` block's producer | Its `cwd` if it declares one, otherwise the filesystem root (`/`) |
 
@@ -467,7 +467,7 @@ That last row is the one to watch: a `run` block with no `cwd` does **not** star
 
 `cwd` takes `~` and placeholders like any other path: `cwd = "~/dev/look"`, or `cwd = "{path}"` in a drill-down. A `cwd` naming a row placeholder makes the whole block a drill-down, exactly as if the command had named one.
 
-One more thing Look does to the environment: it removes `LD_LIBRARY_PATH` before running your command. On Linux the AppImage runtime points that at its own bundled libraries, and a host binary that resolves against them dies on a symbol lookup. Your command sees the host's loader path, which is what you want.
+One more thing Niri-Search does to the environment: it removes `LD_LIBRARY_PATH` before running your command. On Linux the AppImage runtime points that at its own bundled libraries, and a host binary that resolves against them dies on a symbol lookup. Your command sees the host's loader path, which is what you want.
 
 ## Ranking and appearance
 
@@ -476,7 +476,7 @@ Your rows compete with apps and files on one scale, and they earn usage history 
 - **`name`** is the main handle. Every one of a block's rows carries the block name in its search keywords, so typing `projects` brings up the whole block and `projects look` narrows it.
 - **`aliases`** are extra words that find the same rows: `aliases = ["repo", "code"]`.
 - **`bias`** nudges a whole block. Negative keeps a big noisy block below your apps and files; positive lifts a small block you always want first. Start at `-10` or `10`; it is a score offset, not a priority level.
-- **`icon`** takes an emoji (`"🚀"`), an SF Symbol name (`"hammer.fill"`, macOS), or a path to an image.
+- **`icon`** takes an emoji (`"🚀"`) or a path to an image.
 
 ## When things refresh
 
@@ -487,7 +487,7 @@ Your rows compete with apps and files on one scale, and they earn usage history 
 | `file` | reload, and on the normal index refresh |
 | `run` | reload only |
 
-Reload is `Cmd+Shift+;` (macOS) or `Ctrl+Shift+;` (Linux, Windows). It re-reads every file in the sources directory, re-runs every enabled `run` block, and re-indexes. Editing a block and reloading is the whole development loop.
+Reload is `Ctrl+Shift+;`. It re-reads every file in the sources directory, re-runs every enabled `run` block, and re-indexes. Editing a block and reloading is the whole development loop.
 
 `run` rows are cached in `~/.look/cache/rows/<block-id>`, which is what makes a failed refresh harmless.
 
@@ -515,9 +515,9 @@ Blocks below one second of remaining budget are skipped rather than handed a sli
 - Is `enabled = false` still sitting in it?
 - Is the file extension exactly `.toml`?
 
-**A `run` block shows nothing, or shows stale rows.** Run the command in a terminal first. If it prints nothing, or exits non-zero, or takes longer than the timeout, Look keeps the previous rows.
+**A `run` block shows nothing, or shows stale rows.** Run the command in a terminal first. If it prints nothing, or exits non-zero, or takes longer than the timeout, Niri-Search keeps the previous rows.
 
-**Errors are printed to stderr**, one line per problem, prefixed `look sources:`. Launch Look from a terminal to read them. If you have the repo checked out, the parser will also tell you what it made of a directory:
+**Errors are printed to stderr**, one line per problem, prefixed `look sources:`. Launch Niri-Search from a terminal to read them. If you have the repo checked out, the parser will also tell you what it made of a directory:
 
 ```bash
 cargo run -p look-sources --example parse_check -- ~/.look/sources
@@ -534,18 +534,18 @@ It prints every problem, then every block it loaded with its resolved name, icon
 | `a block id cannot contain ":"` | Rename the `[header]` |
 | `then names unknown block "x"` | A typo, or the target was deleted |
 | `duplicate block [x]: only the first is loaded` | Two blocks share an id, possibly across two files |
-| `ignored: not executable and not a .toml declaration` | A file in the directory Look cannot use. `chmod +x` it, or rename it to `.toml` |
+| `ignored: not executable and not a .toml declaration` | A file in the directory Niri-Search cannot use. `chmod +x` it, or rename it to `.toml` |
 | `produced no rows; keeping the previous ones` | A `run` command printed nothing |
 | `/bin/zsh: No such file or directory (os error 2)` | A `cwd` that does not exist. The message names the shell rather than the directory, which makes this one hard to spot |
 
-**A command works in my terminal but not in Look.** In rough order of likelihood:
+**A command works in my terminal but not in Niri-Search.** In rough order of likelihood:
 
-- **`command not found`, but it is right there.** Your terminal is an interactive shell and Look's is a login one, so `~/.zshrc` and `~/.bashrc` are not read. Move the `PATH` export to `~/.zshenv` / `~/.zprofile`, or name the binary by full path. See [Which of your shell files actually get read](#which-of-your-shell-files-actually-get-read).
+- **`command not found`, but it is right there.** Your terminal is an interactive shell and Niri-Search's is a login one, so `~/.zshrc` and `~/.bashrc` are not read. Move the `PATH` export to `~/.zshenv` / `~/.zprofile`, or name the binary by full path. See [Which of your shell files actually get read](#which-of-your-shell-files-actually-get-read).
 - **You use fish or nu.** Blocks fall back to `/bin/sh`, so your functions and abbreviations are not there. See [If you use fish, nu, or another non-POSIX shell](#if-you-use-fish-nu-or-another-non-posix-shell).
 - **It is an alias.** Non-interactive shells do not expand aliases. Make it a function or a script.
 - **A relative path.** A `run` block with no `cwd` starts at `/`, not at home. See [Where a command runs](#where-a-command-runs).
 - **You quoted a placeholder.** They are escaped for you, so `open "{path}"` is doubly quoted and resolves to nothing. Write `open {path}`.
-- **It wants a terminal.** Steps get no stdin and no TTY, so anything that prompts, pages, or draws a full-screen UI will not work. Wrap it in your terminal emulator instead: `open -a Ghostty --args -e top`.
+- **It wants a terminal.** Steps get no stdin and no TTY, so anything that prompts, pages, or draws a full-screen UI will not work. Wrap it in your terminal emulator instead: `ghostty -e top`.
 
 ## Recipes
 
@@ -569,9 +569,9 @@ open    = "code {path}"
 name = "Morning"
 icon = "☕"
 do = [
-  "open -a Slack",
-  "open -a Calendar",
-  "open -a Safari https://github.com/pulls",
+  "slack",
+  "thunderbird",
+  "firefox https://github.com/pulls",
 ]
 ```
 
@@ -589,7 +589,7 @@ db-primary	Primary database	us-east-1
 name     = "SSH hosts"
 file     = "~/.look/hosts.txt"
 icon     = "🖥️"
-open     = "open -a Ghostty --args -e ssh {id}"
+open     = "ghostty -e ssh {id}"
 ```
 
 **Branches of a project, then a guarded delete**

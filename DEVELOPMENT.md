@@ -1,25 +1,21 @@
 # Development
 
-Guide for building Look locally and contributing to the project.
+Guide for building Niri-Search locally and contributing to the project.
 
 ## Repository layout
 
 ```text
 .
 ├── apps/
-│   ├── macos/
-│   │   └── LauncherApp/          # Swift macOS app (Xcode project)
-│   └── linows/                   # Tauri v2 app, Linux
+│   └── linows/                   # Tauri v2 app, Linux (Niri-first)
 │       ├── src-tauri/            #   Rust backend (commands, config, platform, etc.)
 │       ├── src/                  #   Frontend (vanilla HTML/CSS/JS, ES modules)
 │       └── flake.nix             #   NixOS dev shell
-├── core/                         # Shared Rust, consumed by every shell
-│   ├── ai/                       # Routing, planning, lexicon
+├── core/                         # Shared Rust, consumed by the linows shell
 │   ├── answers/                  # Platform-agnostic "web answer" features
 │   ├── calc/                     # Calculator expression evaluation
 │   ├── engine/                   # Query engine, search pipeline, config
 │   ├── indexing/                 # Candidate model, source traits
-│   ├── lunar/                    # Solar-to-lunar date conversion
 │   ├── matching/                 # Fuzzy matching
 │   ├── netspeed/                 # Bandwidth measurement
 │   ├── qactions/                 # Quick Actions catalog (declarative half)
@@ -28,31 +24,19 @@ Guide for building Look locally and contributing to the project.
 │   ├── storage/                  # SQLite-backed storage
 │   ├── todo/                     # Todo backend
 │   └── tools/                    # Preferred tools: catalog + command composition
-├── bridge/
-│   └── ffi/                      # Rust FFI bridge (consumed by macOS/Windows native apps)
 ├── tools/
 │   └── perf/                     # Watcher / refresh benchmarks (separate crate, never bundled)
 ├── docs/                         # User guide, architecture, design decisions
 ├── scripts/                      # Build, release, install scripts
+├── config/                       # Niri integration stanza (config/niri-search.kdl)
 └── assets/                       # Icons, screenshots, demo GIF
 ```
 
 ## Prerequisites
 
-Common:
-
 - Rust stable toolchain (for the core engine)
-- GNU Make (top-level `Makefile` dispatches to `scripts/Makefile.mac`)
-
-macOS:
-
-- macOS 15.0+
-- Xcode (for the app shell)
-
-Linux (linows, the Tauri app):
-
-- Rust stable + `cargo-tauri` CLI (`cargo install tauri-cli --version "^2" --locked`)
-- Linux: distro WebKitGTK/GTK system libraries (or `nix develop` on NixOS)
+- GNU Make (top-level `Makefile`: `test`, `check`, `dev`, `build`)
+- For the Tauri app: `cargo-tauri` CLI (`cargo install tauri-cli --version "^2" --locked`) plus the distro WebKitGTK/GTK system libraries (or `nix develop` on NixOS)
 
 The per-distro package lists and all packaging/installer details are canonical in [apps/linows/BUILDING.md](apps/linows/BUILDING.md).
 
@@ -66,44 +50,9 @@ cargo check --workspace
 cargo test --workspace
 ```
 
-FFI bridge checks:
+Linows (Tauri) dev run: `cd apps/linows && cargo tauri dev` (release: `cargo tauri build`; on NixOS prefix with `nix develop -c`). Per-distro specifics are in [apps/linows/BUILDING.md](apps/linows/BUILDING.md). The dev build reads `~/.look/config.dev`.
 
-```bash
-cd bridge/ffi
-cargo check
-cargo test
-```
-
-Linows (Tauri) dev run: `cd apps/linows && cargo tauri dev` (release: `cargo tauri build`; on NixOS prefix with `nix develop -c`). Per-distro specifics are in [apps/linows/BUILDING.md](apps/linows/BUILDING.md).
-
-Run the local dev app, macOS (from repo root):
-
-```bash
-make app-run
-```
-
-`make app-run` behavior (macOS):
-
-- builds a local Debug app bundle with Xcode
-- stops any running `Look` process (including a Homebrew-installed instance)
-- launches with `LOOK_CONFIG_PATH=$HOME/.look/config.dev`
-- shows a red `TEST APP` badge so the dev run is visually distinct
-
-Install a side-by-side test build (`Look Dev`) without replacing the normal install (macOS only):
-
-```bash
-make app-run-dev
-```
-
-`make app-run-dev` (macOS) builds a local Debug bundle, installs `/Applications/Look Dev.app` with bundle id `noah-code.Look.Dev`, leaves the Homebrew `/Applications/Look.app` untouched, then launches `Look Dev` with `LOOK_CONFIG_PATH=$HOME/.look/config.dev`.
-
-Override the macOS dev config path:
-
-```bash
-make app-run-dev DEV_CONFIG_PATH="$HOME/.look.qa.config"
-```
-
-`make help` lists every target available on the current host.
+`make help` lists every top-level target.
 
 ## Benchmarks
 
@@ -125,20 +74,16 @@ Benchmark snapshots land under [docs/bench-notes/](docs/bench-notes/). Add a new
 
 ## Releasing (maintainers)
 
-Build release artifacts and Homebrew cask:
+Push a `v*` tag (e.g. `v0.2.0`) or dispatch the release workflow with an
+explicit version. CI (`.github/workflows/release-linux.yml`) runs the core
+test suite, builds the `.deb` on Ubuntu and the `.rpm` in a Fedora
+container, and publishes both to GitHub Releases with checksums:
 
 ```bash
-./scripts/build-release.sh 1.0.0
-./scripts/generate-homebrew-cask.sh 1.0.0 <sha256> kunkka19xx/look
+git tag v0.2.0 && git push origin v0.2.0
 ```
 
-Signing and notarization:
-
-- a paid Apple Developer membership is required for Developer ID signing and notarization
-- strict release runs require signing and notary secrets
-- non-strict test runs can still build artifacts when secrets are missing
-
-Signing/notarization walkthrough: [docs/apple-developer-release-guide.md](docs/apple-developer-release-guide.md).
+No staging branch, no freeze: `main` stays releasable at all times.
 
 ## Contribution flow
 
@@ -147,13 +92,12 @@ Signing/notarization walkthrough: [docs/apple-developer-release-guide.md](docs/a
 - run local checks before opening a PR:
   ```bash
   cargo test --workspace --manifest-path core/Cargo.toml
-  cargo test --manifest-path bridge/ffi/Cargo.toml
   # if touching linows:
   cargo clippy --manifest-path apps/linows/src-tauri/Cargo.toml
   cargo fmt --all --manifest-path apps/linows/src-tauri/Cargo.toml -- --check
   ```
 - update docs when user-visible behavior changes
-- see [CONTRIBUTING.md](CONTRIBUTING.md) and the issue templates under [.github/ISSUE_TEMPLATE/](.github/ISSUE_TEMPLATE/)
+- see [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ## Further reading
 
