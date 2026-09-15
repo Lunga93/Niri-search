@@ -102,6 +102,10 @@ jobs:
     env:
       VERSION: ${{ needs.resolve-version.outputs.version }}
     steps:
+      # The fedora:41 image ships without git, and every step (including
+      # checkout) runs inside the container, so install it first.
+      - name: Install git for checkout
+        run: dnf install -y git
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
