@@ -7,6 +7,8 @@
 # Installs the .deb (Debian/Ubuntu) or .rpm (Fedora/RHEL/openSUSE) from
 # GitHub Releases, fixes dependencies with the system package manager,
 # and optionally wires the Niri keybinds (opt-in --configure-niri).
+# Arch builds from source (no native package published) and installs
+# user-locally under ~/.local (only the pacman deps need root).
 set -euo pipefail
 
 REPO="${NIRI_SEARCH_REPO:-Lunga93/Niri-search}"
@@ -67,6 +69,8 @@ if [[ "$(uname -m)" != "x86_64" ]]; then
   echo "Only x86_64 builds are published (found: $(uname -m))." >&2
   exit 1
 fi
+# Accept both "0.2.0" and "v0.2.0": tags, URLs and messages all use v${VERSION}.
+VERSION="${VERSION#v}"
 need curl
 
 # --- Distro detection ---
@@ -98,6 +102,17 @@ do_uninstall() {
     suse)
       if rpm -q niri-search >/dev/null 2>&1; then dry sudo zypper remove -y niri-search;
       else echo "Niri-Search is not installed via rpm."; fi ;;
+    arch)
+      removed=false
+      for f in "${HOME}/.local/bin/${BIN_NAME}" \
+               "${HOME}/.local/share/applications/Niri-Search.desktop" \
+               "${HOME}/.local/share/icons/hicolor/128x128/apps/${BIN_NAME}.png" \
+               "${HOME}/.local/share/icons/hicolor/256x256/apps/${BIN_NAME}.png" \
+               "${HOME}/.local/share/icons/hicolor/512x512/apps/${BIN_NAME}.png"; do
+        if [[ -e "$f" ]]; then dry rm -f "$f"; removed=true; fi
+      done
+      if [[ "$removed" == false ]]; then echo "No user-local Niri-Search files found."; fi
+      ;; 
     *) echo "Uninstall the package with your package manager (package: niri-search)." ;;
   esac
   echo ""
@@ -128,26 +143,74 @@ EOF
   exit 0
 fi
 
-# --- Arch: no native package published; convert the .deb ---
-if [[ "$FAMILY" == arch ]]; then
-  if command -v yay >/dev/null 2>&1 || command -v paru >/dev/null 2>&1; then
-    echo "Trying the AUR (package: niri-search-bin)..."
-    if [[ "$DRY_RUN" == true ]]; then echo "    [dry-run] yay/paru -S niri-search-bin"; exit 0; fi
-    (yay -S --needed niri-search-bin || paru -S --needed niri-search-bin) && exit 0
-    echo "AUR package not available, falling back to debtap..." >&2
+# --- Arch: no native package published; build from source ---
+# Deps mirror apps/linows/BUILDING.md ("Arch Linux"). The build itself is a
+# plain `cargo tauri build --no-bundle`; install is user-local (~/.local).
+ARCH_DEPS=(base-devel rustup webkit2gtk-4.1 gtk3 libsoup3 glib2 cairo pango
+  gdk-pixbuf2 harfbuzz dbus alsa-lib librsvg openssl pkg-config)
+
+install_arch_from_source() {
+  need git
+  need pacman
+  log "Installing build dependencies (pacman, needs root)..."
+  dry sudo pacman -S --needed --noconfirm "${ARCH_DEPS[@]}"
+  export PATH="$HOME/.cargo/bin:$PATH"
+  if ! command -v cargo >/dev/null 2>&1; then
+    log "Activating the stable Rust toolchain..."
+    dry rustup default stable
+    need cargo
   fi
-  if ! command -v debtap >/dev/null 2>&1; then
-    cat <<EOF >&2
-No native Arch package is published. Options:
-  1. yay -S debtap && sudo debtap -u, then re-run this installer
-  2. Download the .deb from https://github.com/${REPO}/releases and convert it by hand
+  if ! cargo tauri --version >/dev/null 2>&1; then
+    log "Installing tauri-cli v2..."
+    dry cargo install tauri-cli --version '^2' --locked
+  fi
+  local src="${TMP_DIR}/niri-search"
+  log "Cloning tag v${VERSION}..."
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "    [dry-run] git clone --depth 1 --branch v${VERSION} https://github.com/${REPO}.git"
+  else
+    git clone --depth 1 --branch "v${VERSION}" "https://github.com/${REPO}.git" "$src" || {
+      echo "No tag 'v${VERSION}' in ${REPO}. Pick an existing release:" >&2
+      echo "  https://github.com/${REPO}/releases" >&2
+      exit 1
+    }
+  fi
+  log "Building release binary (no bundle; takes a few minutes)..."
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "    [dry-run] (cd <clone>/apps/linows && cargo tauri build --no-bundle)"
+  else
+    (cd "${src}/apps/linows" && cargo tauri build --no-bundle)
+  fi
+  local prefix="${HOME}/.local"
+  log "Installing user-locally under ${prefix} (no root needed)..."
+  dry mkdir -p "${prefix}/bin" "${prefix}/share/applications" \
+    "${prefix}/share/icons/hicolor/128x128/apps" \
+    "${prefix}/share/icons/hicolor/256x256/apps" \
+    "${prefix}/share/icons/hicolor/512x512/apps"
+  dry cp "${src}/apps/linows/src-tauri/target/release/${BIN_NAME}" "${prefix}/bin/${BIN_NAME}"
+  dry cp "${src}/apps/linows/src-tauri/icons/128x128.png" \
+    "${prefix}/share/icons/hicolor/128x128/apps/${BIN_NAME}.png"
+  dry cp "${src}/apps/linows/src-tauri/icons/128x128@2x.png" \
+    "${prefix}/share/icons/hicolor/256x256/apps/${BIN_NAME}.png"
+  dry cp "${src}/apps/linows/src-tauri/icons/icon.png" \
+    "${prefix}/share/icons/hicolor/512x512/apps/${BIN_NAME}.png"
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "    [dry-run] write ${prefix}/share/applications/Niri-Search.desktop"
+  else
+    cat > "${prefix}/share/applications/Niri-Search.desktop" <<EOF
+[Desktop Entry]
+Categories=Utility;
+Comment=Keyboard-first launcher for the Niri compositor
+Exec=${BIN_NAME}
+StartupWMClass=${BIN_NAME}
+Icon=${BIN_NAME}
+Name=Niri-Search
+Terminal=false
+Type=Application
 EOF
-    exit 1
   fi
-  log "Converting .deb to Arch package with debtap (debtap path continues as a .deb download below)."
-  FAMILY=debian
-  DEBTAP=true
-fi
+  log "Make sure ${prefix}/bin is on your PATH."
+}
 
 if [[ "$FAMILY" == unknown ]]; then
   echo "Unsupported distro '${DISTRO_ID}'. Grab a package by hand:" >&2
@@ -191,11 +254,6 @@ install_deb() {
   if [[ "$DRY_RUN" != true ]]; then pkg="$(dpkg-deb -f "$path" Package 2>/dev/null || echo niri-search)"; fi
   if dpkg -s "$pkg" >/dev/null 2>&1; then log "Removing previous ${pkg}..."; dry sudo dpkg -r "$pkg"; fi
   log "Installing ${name}..."
-  if [[ "${DEBTAP:-false}" == true ]]; then
-    dry sudo debtap -q "$path"
-    log "Install the converted package, then re-run with --configure-niri for the Niri stanza."
-    return 0
-  fi
   dry sudo dpkg -i "$path"
   if [[ "$DRY_RUN" != true ]] && ! dpkg -s "$pkg" >/dev/null 2>&1; then
     log "Fixing missing dependencies..."
@@ -217,6 +275,7 @@ install_rpm() {
 case "$FAMILY" in
   debian) install_deb ;;
   redhat|suse) install_rpm ;;
+  arch) install_arch_from_source ;;
 esac
 
 # --- Optional Niri wiring ---

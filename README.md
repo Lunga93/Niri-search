@@ -62,13 +62,10 @@ sudo dnf install ./niri-search-*.rpm
 sudo zypper install ./niri-search-*.rpm
 ```
 
-**Arch Linux:**
-
-No native `niri-search-bin` AUR package is published yet. Convert the
-`.deb` with debtap:
+**Arch Linux:** no native package is published, so the same installer
+builds from source (pacman deps need root; the app lands in `~/.local`):
 
 ```bash
-yay -S debtap && sudo debtap -u
 curl -fsSL https://raw.githubusercontent.com/Lunga93/Niri-search/main/scripts/linux/install-niri-search.sh | bash
 ```
 
