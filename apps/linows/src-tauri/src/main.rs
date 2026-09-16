@@ -418,9 +418,11 @@ fn register_shortcuts(app: &tauri::App, use_wayland: bool) {
             }
 
             let handle = app_handle.clone();
-            platform::linux::wayland_shortcut::start(move || {
-                toggle_window(&handle);
-            });
+            let quit_handle = app_handle.clone();
+            platform::linux::wayland_shortcut::start(
+                move || toggle_window(&handle),
+                move || quit_handle.exit(0),
+            );
         }
     } else {
         use tauri_plugin_global_shortcut::GlobalShortcutExt;

@@ -1,12 +1,13 @@
-// Niri-Search integration stanza for the Niri compositor.
+// Niri-Search integration for the Niri compositor.
 //
-// Pick ONE of:
-//   1. Copy this whole file into ~/.config/niri/config.kdl (or any file it includes).
-//   2. Save it as ~/.config/niri/niri-search.kdl and add one line to config.kdl:
-//        include "~/.config/niri/niri-search.kdl"
-//   3. Run the installer with --configure-niri (appends the same stanza,
-//      backs your config up to config.kdl.bak first):
+// This file lives OUTSIDE config.kdl and is pulled in with `include`.
+// Do NOT copy it into config.kdl itself: niri allows only one top-level
+// `binds` block per file, and `include` is how the bind lines get merged
+// into your existing binds. Setup, one of:
+//   1. Run the installer (writes this file + adds the include line):
 //        install-niri-search.sh --configure-niri
+//   2. Save as ~/.config/niri/niri-search.kdl and add to config.kdl:
+//        include "/home/YOU/.config/niri/niri-search.kdl";
 //
 // Afterwards run `niri validate`. The binary is `lookapp` and the D-Bus
 // name is `com.look.Desktop` (code identifiers, unchanged by the rebrand).
@@ -20,6 +21,10 @@ binds {
     // window holding a keyboard-shortcuts inhibitor (fullscreen games,
     // browsers, VMs all take one) and the launcher never opens over them.
     Alt+Space allow-inhibiting=false hotkey-overlay-title="Niri-Search" { spawn "gdbus" "call" "--session" "--dest" "com.look.Desktop" "--object-path" "/com/look/Desktop" "--method" "com.look.Desktop.Toggle"; }
+
+    // Global quit, even while the launcher is hidden (the in-window
+    // Alt+Shift+Q only works when the overlay is focused).
+    Alt+Shift+Q allow-inhibiting=false { spawn "gdbus" "call" "--session" "--dest" "com.look.Desktop" "--object-path" "/com/look/Desktop" "--method" "com.look.Desktop.Quit"; }
 }
 
 // Floating is applied at runtime over niri's IPC; this rule only adds the

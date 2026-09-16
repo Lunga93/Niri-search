@@ -267,12 +267,10 @@ pub fn process_detail(pid: u32) -> Option<ProcDetail> {
 /// Async + `spawn_blocking` so the sampling sleep never stalls the main thread.
 #[tauri::command]
 pub async fn process_cpu(pid: u32) -> Option<f64> {
-    tauri::async_runtime::spawn_blocking(move || {
-        crate::platform::linux::process::cpu(pid)
-    })
-    .await
-    .ok()
-    .flatten()
+    tauri::async_runtime::spawn_blocking(move || crate::platform::linux::process::cpu(pid))
+        .await
+        .ok()
+        .flatten()
 }
 
 #[tauri::command]

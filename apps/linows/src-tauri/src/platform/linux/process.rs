@@ -234,7 +234,7 @@ pub(crate) fn list_gui() -> Vec<RunningApp> {
         // Wayland: get app_ids from wlr-foreign-toplevel
         let app_ids = super::wlr_focus::list_toplevel_app_ids();
         if debug {
-            eprintln!("[list_gui] wlr app_ids: {:?}", app_ids);
+            eprintln!("[list_gui] wlr app_ids: {app_ids:?}");
         }
         if !app_ids.is_empty() {
             // StartupWMClass is a third matching axis besides the stem forms:
@@ -281,7 +281,7 @@ pub(crate) fn list_gui() -> Vec<RunningApp> {
         // the same signal GNOME's Activities/app-switcher uses.
         let ext_ids = super::gnome_ext::list_windowed_apps();
         if debug {
-            eprintln!("[list_gui] gnome ext ListWindowedApps: {:?}", ext_ids);
+            eprintln!("[list_gui] gnome ext ListWindowedApps: {ext_ids:?}");
         }
         if let Some(ids) = ext_ids {
             let windowed: std::collections::HashSet<String> =

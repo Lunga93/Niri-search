@@ -194,8 +194,10 @@ Type=Application
 EOF
   fi
   if [[ "$DRY_RUN" != true ]] && pgrep -x "${BIN_NAME}" >/dev/null 2>&1; then
-    echo "Note: an older Niri-Search instance is still running. Quit it"
-    echo "      (Alt+Shift+Q) and relaunch to use this new build."
+    echo "Note: an older Niri-Search instance is still running. Its binary"
+    echo "      just changed, so quit it before launching again:"
+    echo "        pkill -x ${BIN_NAME}"
+    echo "      The new build adds a global Alt+Shift+Q quit bind (niri)."
   fi
   log "Make sure ${PREFIX}/bin is on your PATH."
 }
@@ -203,20 +205,65 @@ EOF
 install_from_source
 
 # --- Optional Niri wiring ---
+# All niri integration lives in $NIRI_DIR/niri-search.kdl. niri merges
+# binds/ spawn-at-startup/ window-rule from included files, so config.kdl
+# only needs a single `include` line. This is robust against rewrites of
+# config.kdl (e.g. niri-settings) and avoids the invalid duplicate
+# top-level `binds` an older installer appended as an inline stanza.
+NIRI_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/niri"
+NIRI_INCLUDE_FILE="$NIRI_DIR/niri-search.kdl"
+
+# Strip any lookapp wiring an older installer left inline in config.kdl.
+# niri-search.kdl now provides spawn-at-startup + binds + window-rule, so
+# leftovers in config.kdl would duplicate them. Safe for unrelated
+# window-rule blocks (they are kept unless they match lookapp).
+strip_legacy_inline() {
+  awk '
+    /spawn-at-startup "lookapp"/ { next }
+    # pre-existing manual Alt+Space toggle for the launcher: niri-search.kdl
+    # now provides it via include; keeping both would double-toggle.
+    /Alt\+Space/ && /com\.look\.Desktop\.Toggle/ { next }
+    /Look launcher autostart is owned by install-niri-search.sh/ { next }
+    /niri-search >>>/ { in_marker=1; next }
+    in_marker {
+      if ($0 ~ /niri-search <<</) in_marker=0
+      next
+    }
+    /^window-rule[[:space:]]*\{/ {
+      wbuf = $0 "\n"
+      wopen = 1
+      next
+    }
+    wopen {
+      wbuf = wbuf $0 "\n"
+      if ($0 ~ /^[[:space:]]*\}/) {
+        if (wbuf !~ /app-id="\^lookapp\$"/) printf "%s", wbuf
+        wopen = 0; wbuf = ""
+      }
+      next
+    }
+    { print }
+  ' "$1"
+}
+
 configure_niri() {
-  local cfg="${XDG_CONFIG_HOME:-$HOME/.config}/niri/config.kdl"
+  local cfg="${NIRI_DIR}/config.kdl"
   if [[ ! -f "$cfg" ]]; then echo "No Niri config at ${cfg}; skipping Niri setup." >&2; return 0; fi
-  if grep -q 'niri-search >>>' "$cfg" 2>/dev/null || grep -q 'spawn-at-startup "lookapp"' "$cfg" 2>/dev/null; then
-    log "Niri-Search stanza already present in ${cfg}."
-    return 0
-  fi
-  local stanza
-  stanza=$(cat <<EOF
-# >>> niri-search >>> (added by install-niri-search.sh; safe to delete)
+
+  # 1. Write the standalone integration file (niri merges its binds).
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "    [dry-run] write ${NIRI_INCLUDE_FILE}"
+  else
+    cat <<KDL > "${NIRI_INCLUDE_FILE}"
+// Niri-Search integration (managed by install-niri-search.sh; safe to delete)
+// Regenerate with: install-niri-search.sh --configure-niri
+// The binary is ${BIN_NAME} and the D-Bus interface is ${DBUS_DEST}
+
 spawn-at-startup "${BIN_NAME}"
 
 binds {
     Alt+Space allow-inhibiting=false hotkey-overlay-title="Niri-Search" { spawn "gdbus" "call" "--session" "--dest" "${DBUS_DEST}" "--object-path" "${DBUS_PATH}" "--method" "${DBUS_DEST}.Toggle"; }
+    Alt+Shift+Q allow-inhibiting=false { spawn "gdbus" "call" "--session" "--dest" "${DBUS_DEST}" "--object-path" "${DBUS_PATH}" "--method" "${DBUS_DEST}.Quit"; }
 }
 
 window-rule {
@@ -225,16 +272,32 @@ window-rule {
     focus-ring { off; }
     shadow { off; }
 }
-# <<< niri-search <<<
-EOF
-)
-  if [[ "$DRY_RUN" == true ]]; then echo "    [dry-run] append Niri stanza to ${cfg} (backup ${cfg}.bak)"; return 0; fi
-  cp "$cfg" "${cfg}.bak"
-  printf '\n%s\n' "$stanza" >> "$cfg"
-  if command -v niri >/dev/null 2>&1 && niri validate 2>/dev/null; then
-    log "Niri config valid (backup: ${cfg}.bak)."
+KDL
+    log "Wrote ${NIRI_INCLUDE_FILE}"
+  fi
+
+  # 2. Remove legacy inline lookapp wiring from config.kdl.
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "    [dry-run] strip legacy inline lookapp stanza from ${cfg}"
   else
-    log "Stanza appended (backup: ${cfg}.bak). Run 'niri validate' to check it."
+    strip_legacy_inline "$cfg" > "${cfg}.tmp" && mv -f "${cfg}.tmp" "$cfg"
+  fi
+
+  # 3. Add the include line if absent. Absolute path: niri does not expand '~'.
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "    [dry-run] add include of ${NIRI_INCLUDE_FILE} to ${cfg}"
+  elif ! grep -q 'include .*niri-search.kdl' "$cfg" 2>/dev/null; then
+    cp "$cfg" "${cfg}.bak"
+    printf '\n// >>> niri-search: managed by install-niri-search.sh (safe to delete)\ninclude "%s";\n// <<< niri-search\n' "${NIRI_INCLUDE_FILE}" >> "$cfg"
+    log "Added include of ${NIRI_INCLUDE_FILE} to ${cfg} (backup: ${cfg}.bak)"
+  else
+    log "Niri include already present in ${cfg}."
+  fi
+
+  if command -v niri >/dev/null 2>&1 && niri validate -c "$cfg" >/dev/null 2>&1; then
+    log "Niri config valid."
+  else
+    log "Run 'niri validate' to check your Niri config."
   fi
 }
 
@@ -250,17 +313,18 @@ Launch:
   Alt+Space              # global toggle (after first launch)
 EOF
 if [[ "$CONFIGURE_NIRI" == true ]]; then
-  echo "  (Niri stanza installed: spawn-at-startup, Alt+Space bind, floating rule)"
+  echo "  (Niri wired: niri-search.kdl include'd from ${NIRI_DIR}/config.kdl)"
 else
   cat <<EOF
 
-Niri is not wired yet. Either re-run with --configure-niri, or add to
-~/.config/niri/config.kdl by hand:
+Niri is not wired yet. Either re-run with --configure-niri, or do it by
+hand: save niri-search.kdl to ~/.config/niri/ and add this line to
+~/.config/niri/config.kdl:
 
-  spawn-at-startup "${BIN_NAME}"
-  binds {
-      Alt+Space allow-inhibiting=false { spawn "gdbus" "call" "--session" "--dest" "${DBUS_DEST}" "--object-path" "${DBUS_PATH}" "--method" "${DBUS_DEST}.Toggle"; }
-  }
+  include "$(printf '%s' "${NIRI_INCLUDE_FILE}")";
+
+The file manages: spawn-at-startup, Alt+Space toggle (D-Bus), Alt+Shift+Q
+quit (D-Bus), and floating window rule.
 EOF
 fi
 cat <<EOF

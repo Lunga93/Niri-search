@@ -71,9 +71,7 @@ fn caller_invocation(name: &str, path: &std::path::Path) -> String {
         // After a NixOS rebuild the old store path is garbage-collected.
         // `/run/current-system/sw/bin/` points at the active generation and
         // survives rebuilds — prefer it when the binary exists there.
-        let sw_path = std::path::PathBuf::from(format!(
-            "/run/current-system/sw/bin/{name}"
-        ));
+        let sw_path = std::path::PathBuf::from(format!("/run/current-system/sw/bin/{name}"));
         if sw_path.exists() {
             return sw_path.to_string_lossy().into_owned();
         }
@@ -146,10 +144,11 @@ fn detect_compositor() -> Compositor {
 
 /// Start a background thread that:
 /// 1. Registers a compositor-specific keybinding for Alt+Space
-/// 2. Registers a D-Bus service to listen for Toggle calls
-pub fn start<F>(on_toggle: F)
+/// 2. Registers a D-Bus service to listen for Toggle/Quit calls
+pub fn start<F, G>(on_toggle: F, on_quit: G)
 where
     F: Fn() + Send + Sync + 'static,
+    G: Fn() + Send + Sync + 'static,
 {
     let compositor = detect_compositor();
 
@@ -199,6 +198,7 @@ where
 
         rt.block_on(async {
             let on_toggle = std::sync::Arc::new(on_toggle);
+            let on_quit = std::sync::Arc::new(on_quit);
 
             if compositor == Compositor::Kde {
                 let toggle = on_toggle.clone();
@@ -225,7 +225,8 @@ where
             let mut succeeded = false;
             for attempt in 0..MAX_RETRIES {
                 let toggle = on_toggle.clone();
-                match run_dbus_service(move || toggle()).await {
+                let quit = on_quit.clone();
+                match run_dbus_service(move || toggle(), move || quit()).await {
                     Ok(()) => {
                         succeeded = true;
                         break;
@@ -988,23 +989,29 @@ pub fn cleanup_keybinding() {
 // D-Bus service
 // ---------------------------------------------------------------------------
 
-/// Run a D-Bus service that listens for Toggle method calls.
-async fn run_dbus_service<F>(on_toggle: F) -> Result<(), Box<dyn std::error::Error>>
+/// Run a D-Bus service that listens for Toggle and Quit method calls.
+async fn run_dbus_service<F, G>(on_toggle: F, on_quit: G) -> Result<(), Box<dyn std::error::Error>>
 where
     F: Fn() + Send + Sync + 'static,
+    G: Fn() + Send + Sync + 'static,
 {
-    struct LookService<F: Fn() + Send + Sync + 'static> {
+    struct LookService<F: Fn() + Send + Sync + 'static, G: Fn() + Send + Sync + 'static> {
         on_toggle: F,
+        on_quit: G,
     }
 
     #[zbus::interface(name = "com.look.Desktop")]
-    impl<F: Fn() + Send + Sync + 'static> LookService<F> {
+    impl<F: Fn() + Send + Sync + 'static, G: Fn() + Send + Sync + 'static> LookService<F, G> {
         fn toggle(&self) {
             (self.on_toggle)();
         }
+
+        fn quit(&self) {
+            (self.on_quit)();
+        }
     }
 
-    let service = LookService { on_toggle };
+    let service = LookService { on_toggle, on_quit };
     let _conn = zbus::connection::Builder::session()?
         .name(DBUS_NAME)?
         .serve_at(DBUS_PATH, service)?

@@ -222,10 +222,7 @@ pub fn open_path(
 /// command would block the main thread; resolves only once the launch is
 /// confirmed, so usage is never recorded for a declined prompt.
 #[tauri::command]
-pub async fn open_elevated(
-    _window: tauri::WebviewWindow,
-    _path: String,
-) -> Result<(), String> {
+pub async fn open_elevated(_window: tauri::WebviewWindow, _path: String) -> Result<(), String> {
     Err("elevated launch is not supported on this platform".into())
 }
 
@@ -392,10 +389,7 @@ pub fn hide_window(window: tauri::WebviewWindow) {
 /// Blur behind the surfaces the frontend paints, in logical pixels. A no-op
 /// wherever the compositor has no such request (see platform::blur).
 #[tauri::command]
-pub fn set_blur_region(
-    window: tauri::WebviewWindow,
-    rects: Vec<crate::platform::BlurRect>,
-) {
+pub fn set_blur_region(window: tauri::WebviewWindow, rects: Vec<crate::platform::BlurRect>) {
     #[cfg(target_os = "linux")]
     if let Some(wid) = crate::platform::linux::window_focus::self_window() {
         let scale = window.scale_factor().unwrap_or(1.0);

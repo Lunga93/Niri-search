@@ -95,7 +95,7 @@ pub fn collect() -> Vec<Vec<SysInfoEntry>> {
                 });
                 s.push(SysInfoEntry {
                     label: "Cores".into(),
-                    value: format!("{}", cores),
+                    value: format!("{cores}"),
                 });
             }
             if let Ok(stat) = std::fs::read_to_string("/proc/stat")
@@ -113,7 +113,7 @@ pub fn collect() -> Vec<Vec<SysInfoEntry>> {
                         let usage = ((total - idle) as f64 / total as f64) * 100.0;
                         s.push(SysInfoEntry {
                             label: "Usage".into(),
-                            value: format!("{:.1}%", usage),
+                            value: format!("{usage:.1}%"),
                         });
                     }
                 }
@@ -159,9 +159,9 @@ pub fn collect() -> Vec<Vec<SysInfoEntry>> {
             let hours = (total_secs % 86400) / 3600;
             let mins = (total_secs % 3600) / 60;
             let val = if days > 0 {
-                format!("{}d {}h {}m", days, hours, mins)
+                format!("{days}d {hours}h {mins}m")
             } else {
-                format!("{}h {}m", hours, mins)
+                format!("{hours}h {mins}m")
             };
             s.push(SysInfoEntry {
                 label: "Time".into(),
