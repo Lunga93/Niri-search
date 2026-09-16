@@ -316,7 +316,7 @@ fn setup_dev_env() {
     // $USERPROFILE pointing at different directories.
     let home = look_engine::config_path::home().unwrap_or_else(|| ".".to_string());
 
-    if std::env::var(config::ENV_CONFIG_PATH)
+    if std::env::var(look_engine::config_path::ENV_CONFIG_PATH)
         .unwrap_or_default()
         .trim()
         .is_empty()
@@ -325,7 +325,7 @@ fn setup_dev_env() {
         let dev =
             look_engine::config_path::resolve_home_variant(std::path::Path::new(&home), true).path;
         unsafe {
-            std::env::set_var(config::ENV_CONFIG_PATH, dev);
+            std::env::set_var(look_engine::config_path::ENV_CONFIG_PATH, dev);
         }
     }
     if std::env::var(state::ENV_DB_PATH)
@@ -345,7 +345,7 @@ fn setup_dev_env() {
     }
     eprintln!(
         "[dev] config={} db={}",
-        std::env::var(config::ENV_CONFIG_PATH).unwrap_or_default(),
+        std::env::var(look_engine::config_path::ENV_CONFIG_PATH).unwrap_or_default(),
         std::env::var(state::ENV_DB_PATH).unwrap_or_default(),
     );
 }

@@ -161,7 +161,17 @@ install_from_source() {
     "${PREFIX}/share/icons/hicolor/128x128/apps" \
     "${PREFIX}/share/icons/hicolor/256x256/apps" \
     "${PREFIX}/share/icons/hicolor/512x512/apps"
-  dry cp "${src}/apps/linows/src-tauri/target/release/${BIN_NAME}" "${PREFIX}/bin/${BIN_NAME}"
+  # cp straight onto the target fails with "Text file busy" while an old
+  # instance of the launcher is still running (its binary IS that file).
+  # Copy to a sibling temp path, then rename: rename() is atomic and
+  # replaces the running executable without error; the live process keeps
+  # the old inode and the next launch picks up the new binary.
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "    [dry-run] install ${BIN_NAME} via temp file + rename (atomic over a running instance)"
+  else
+    cp "${src}/apps/linows/src-tauri/target/release/${BIN_NAME}" "${PREFIX}/bin/${BIN_NAME}.new"
+    mv -f "${PREFIX}/bin/${BIN_NAME}.new" "${PREFIX}/bin/${BIN_NAME}"
+  fi
   dry cp "${src}/apps/linows/src-tauri/icons/128x128.png" \
     "${PREFIX}/share/icons/hicolor/128x128/apps/${BIN_NAME}.png"
   dry cp "${src}/apps/linows/src-tauri/icons/128x128@2x.png" \
@@ -182,6 +192,10 @@ Name=Niri-Search
 Terminal=false
 Type=Application
 EOF
+  fi
+  if [[ "$DRY_RUN" != true ]] && pgrep -x "${BIN_NAME}" >/dev/null 2>&1; then
+    echo "Note: an older Niri-Search instance is still running. Quit it"
+    echo "      (Alt+Shift+Q) and relaunch to use this new build."
   fi
   log "Make sure ${PREFIX}/bin is on your PATH."
 }

@@ -153,9 +153,6 @@ fn default_config_contents() -> String {
     out
 }
 
-/// Re-exported, not repeated: a second name is a second file.
-pub use look_engine::config_path::ENV_CONFIG_PATH;
-
 const CLIPBOARD_HISTORY_LIMIT_KEY: &str = "clipboard_history_limit";
 pub const CLIPBOARD_HISTORY_LIMIT_DEFAULT: usize = 10;
 pub const CLIPBOARD_HISTORY_LIMIT_MIN: usize = 10;
