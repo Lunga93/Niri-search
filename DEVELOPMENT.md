@@ -74,14 +74,16 @@ Benchmark snapshots land under [docs/bench-notes/](docs/bench-notes/). Add a new
 
 ## Releasing (maintainers)
 
-Push a `v*` tag (e.g. `v0.2.0`) or dispatch the release workflow with an
-explicit version. CI (`.github/workflows/release-linux.yml`) runs the core
-test suite, builds the `.deb` on Ubuntu and the `.rpm` in a Fedora
-container, and publishes both to GitHub Releases with checksums:
+Push a `v*` tag (e.g. `v0.2.0`) — it becomes the version the installer
+clones and builds from:
 
 ```bash
 git tag v0.2.0 && git push origin v0.2.0
 ```
+
+Tagged commits should pass the core test suite (`cargo test --workspace
+--manifest-path core/Cargo.toml`). No binary packages are published; the
+installer (`scripts/linux/install-niri-search.sh`) builds from the tag.
 
 No staging branch, no freeze: `main` stays releasable at all times.
 

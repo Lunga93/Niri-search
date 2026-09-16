@@ -10,7 +10,7 @@
 
 ## First run
 
-Install the `.deb` or `.rpm` (see [README](../README.md#install)), or run
+Install on Arch/CachyOS (see [README](../README.md#install)), or run
 the installer with `--configure-niri` to wire the Niri keybinds at the
 same time:
 

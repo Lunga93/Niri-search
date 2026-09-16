@@ -163,37 +163,21 @@ needs doing by hand, and the old file is left where it is.
 
 ---
 
-## Building Release Bundles Locally
+## Building a Release Binary Locally
 
-Release bundles are built by CI (`.github/workflows/release-linux.yml`):
-`.deb` on ubuntu-24.04, `.rpm` in a Fedora 41 container. To build one
-locally from your current working tree, for example to test a fix on
-Fedora before releasing:
+No prebuilt packages are published; release builds are made from a
+source checkout. Build the optimized binary with:
 
 ```bash
-# .deb (Debian/Ubuntu host with the dev dependencies installed)
 cd apps/linows
-cargo tauri build --bundles deb
-# Output: src-tauri/target/release/bundle/deb/niri-search_*_amd64.deb
-
-# .rpm (any host with docker: same dependency list as CI, Fedora 41)
-docker run --rm -v "$PWD:/work" -w /work/apps/linows fedora:41 bash -c '
-  dnf install -y gcc pkg-config openssl-devel gtk3-devel webkit2gtk4.1-devel \
-    libsoup3-devel glib2-devel cairo-devel pango-devel gdk-pixbuf2-devel \
-    harfbuzz-devel dbus-devel alsa-lib-devel librsvg2-devel \
-    libappindicator-gtk3-devel curl git &&
-  curl --proto "=https" --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y &&
-  source "$HOME/.cargo/env" &&
-  cargo install tauri-cli --version "^2" --locked &&
-  cargo tauri build --bundles rpm'
-# Output: src-tauri/target/release/bundle/rpm/niri-search-*.rpm
+cargo tauri build --no-bundle
+# Output: src-tauri/target/release/lookapp
 ```
 
-**Why a container for rpm:** rpm filenames, compression, and dependency
-names are Fedora conventions; building inside Fedora guarantees the
-published `.rpm` installs cleanly with `dnf`. The `.deb` builds natively
-because `dpkg-deb` output is distro-independent enough at these
-dependency names.
+`cargo tauri build` (without `--no-bundle`) additionally runs the Tauri
+bundler, which can produce `.deb`/`.rpm` when the host satisfies the
+corresponding tooling — useful for local testing on those systems, but
+not shipped anywhere.
 
 ---
 
@@ -220,49 +204,23 @@ dependency names.
 
 ## Package Manager Installation
 
-Prebuilt packages are published on every tagged release. To build from source instead, use the instructions above.
+### Arch Linux / CachyOS
 
-### Ubuntu / Debian (.deb)
+**Status:** Supported, from source.
 
-**Status:** Available now.
-
-Download `niri-search_<version>_amd64.deb` from GitHub Releases, then:
-
-```bash
-sudo dpkg -i niri-search_*.deb
-sudo apt-get install -f   # pull in any missing runtime deps
-```
-
-Built by CI (`.github/workflows/release-linux.yml`) alongside the .rpm.
-
-### Fedora / RHEL / openSUSE (.rpm)
-
-**Status:** Available now.
-
-Download `niri-search-<version>-1.x86_64.rpm` from GitHub Releases, then:
+The one-liner installer clones the latest release tag, installs the
+pacman build dependencies, builds with `cargo tauri build --no-bundle`,
+and installs user-locally under `~/.local`:
 
 ```bash
-# Fedora / RHEL (dnf resolves dependencies itself)
-sudo dnf install ./niri-search-*.rpm
-
-# openSUSE
-sudo zypper install ./niri-search-*.rpm
+curl -fsSL https://raw.githubusercontent.com/Lunga93/Niri-search/main/scripts/linux/install-niri-search.sh | bash
 ```
 
-Built by CI (`.github/workflows/release-linux.yml`) alongside the .deb.
+Add `--configure-niri` to append the Niri keybind stanza. See
+`scripts/linux/install-niri-search.sh --help`.
 
-### Arch Linux
-
-**Status:** No native package published yet.
-
-Convert the `.deb` with debtap:
-
-```bash
-yay -S debtap && sudo debtap -u
-```
-
-then install via `scripts/linux/install-niri-search.sh`, which detects
-the debtap path automatically.
+Other distros currently have no installer path; build from source with
+the instructions above.
 
 ### NixOS (flake)
 
@@ -319,8 +277,3 @@ environment.systemPackages = [ pkgs.lookapp ];
 For non-NixOS Nix users: `cachix use look` then `nix profile install`.
 
 > **Note:** For user-level declarative installation and configuration, use the Home Manager module described above. The NixOS module is intended for system-level configuration. Contributions to add Niri-Search to [nixpkgs](https://github.com/NixOS/nixpkgs) are welcome.
-
-### AppImage (universal)
-
-**Status:** Dropped. Releases ship `.deb` and `.rpm` only; the AppImage
-build scripts were removed. Use your distro's native package above.

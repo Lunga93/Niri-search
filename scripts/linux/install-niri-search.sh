@@ -1,14 +1,13 @@
 #!/usr/bin/env bash
-# Niri-Search installer for Linux.
+# Niri-Search installer for Arch Linux and CachyOS.
 #
 # One-liner:
 #   curl -fsSL https://raw.githubusercontent.com/Lunga93/Niri-search/main/scripts/linux/install-niri-search.sh | bash
 #
-# Installs the .deb (Debian/Ubuntu) or .rpm (Fedora/RHEL/openSUSE) from
-# GitHub Releases, fixes dependencies with the system package manager,
-# and optionally wires the Niri keybinds (opt-in --configure-niri).
-# Arch builds from source (no native package published) and installs
-# user-locally under ~/.local (only the pacman deps need root).
+# No binary packages are published. The installer clones the release tag,
+# builds with `cargo tauri build --no-bundle`, and installs user-locally
+# under ~/.local. Only the pacman build dependencies need root.
+# Optionally wires the Niri keybinds (opt-in --configure-niri).
 set -euo pipefail
 
 REPO="${NIRI_SEARCH_REPO:-Lunga93/Niri-search}"
@@ -20,17 +19,18 @@ DRY_RUN=false
 BIN_NAME="lookapp"
 DBUS_DEST="com.look.Desktop"
 DBUS_PATH="/com/look/Desktop"
+PREFIX="${HOME}/.local"
 
 usage() {
   cat <<EOF
 Usage: install-niri-search.sh [OPTIONS]
 
 Options:
-  --version <x.y.z>   Install a specific version (default: latest release)
+  --version <x.y.z>   Install a specific version (default: latest v* tag)
   --repo <owner/repo> GitHub repository (default: ${REPO})
   --configure-niri    Append spawn-at-startup, Alt+Space bind and window
                       rule to ~/.config/niri/config.kdl (backs it up first)
-  --uninstall         Remove Niri-Search
+  --uninstall         Remove Niri-Search (user-local files under ~/.local)
   --dry-run           Show what would happen without doing it
   -h, --help          Show this help
 
@@ -45,8 +45,13 @@ dry()  { if [[ "$DRY_RUN" == true ]]; then echo "    [dry-run] $*"; else "$@"; f
 need() { command -v "$1" >/dev/null 2>&1 || { echo "Missing required tool: $1" >&2; exit 1; }; }
 
 resolve_latest_version() {
-  curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" \
-    | grep '"tag_name"' | sed 's/.*"v\?\([^"]*\)".*/\1/'
+  # Latest v* tag, straight from git. No GitHub Release object needed
+  # (and no API rate limits to hit).
+  git ls-remote --tags --sort='-v:refname' "https://github.com/${REPO}.git" 2>/dev/null \
+    | grep -v '\^{}' \
+    | grep -oE 'refs/tags/v[0-9][0-9A-Za-z._-]*$' \
+    | head -1 \
+    | sed 's#.*/v##'
 }
 
 while [[ $# -gt 0 ]]; do
@@ -65,56 +70,33 @@ if [[ "$(uname -s)" != "Linux" ]]; then
   echo "This installer is for Linux only." >&2
   exit 1
 fi
-if [[ "$(uname -m)" != "x86_64" ]]; then
-  echo "Only x86_64 builds are published (found: $(uname -m))." >&2
-  exit 1
-fi
-# Accept both "0.2.0" and "v0.2.0": tags, URLs and messages all use v${VERSION}.
+# Accept both "0.2.0" and "v0.2.0": tags, clone branch and messages use v${VERSION}.
 VERSION="${VERSION#v}"
-need curl
+need git
 
-# --- Distro detection ---
+# --- Distro gate: Arch Linux and CachyOS (both pacman-based) ---
 # shellcheck disable=SC1091
 source /etc/os-release 2>/dev/null || { echo "Cannot detect distro (/etc/os-release missing)." >&2; exit 1; }
 DISTRO_ID="${ID:-unknown}"
 DISTRO_LIKE="${ID_LIKE:-}"
+if [[ "$DISTRO_ID" != "arch" && "$DISTRO_ID" != "cachyos" && "$DISTRO_LIKE" != *"arch"* ]]; then
+  echo "Niri-Search supports Arch Linux and CachyOS only (found '${DISTRO_ID}')." >&2
+  echo "Other distros: build from source, see apps/linows/BUILDING.md" >&2
+  exit 1
+fi
 
-is_like() { [[ "$DISTRO_ID" == "$1" || "$DISTRO_LIKE" == *"$1"* ]]; }
-
-if is_like debian || is_like ubuntu; then FAMILY=debian;
-elif is_like fedora || is_like rhel || is_like centos; then FAMILY=redhat;
-elif [[ "$DISTRO_ID" == *"suse"* ]] || is_like suse; then FAMILY=suse;
-elif is_like arch; then FAMILY=arch;
-elif [[ "$DISTRO_ID" == "nixos" ]]; then FAMILY=nixos;
-else FAMILY=unknown; fi
-
-# --- Uninstall ---
+# --- Uninstall (user-local files only) ---
 do_uninstall() {
   log "Removing Niri-Search..."
-  case "$FAMILY" in
-    debian)
-      if dpkg -s niri-search >/dev/null 2>&1; then dry sudo dpkg -r niri-search;
-      elif dpkg -s "$BIN_NAME" >/dev/null 2>&1; then dry sudo dpkg -r "$BIN_NAME";
-      else echo "Niri-Search is not installed via dpkg."; fi ;;
-    redhat)
-      if rpm -q niri-search >/dev/null 2>&1; then dry sudo dnf remove -y niri-search;
-      else echo "Niri-Search is not installed via rpm."; fi ;;
-    suse)
-      if rpm -q niri-search >/dev/null 2>&1; then dry sudo zypper remove -y niri-search;
-      else echo "Niri-Search is not installed via rpm."; fi ;;
-    arch)
-      removed=false
-      for f in "${HOME}/.local/bin/${BIN_NAME}" \
-               "${HOME}/.local/share/applications/Niri-Search.desktop" \
-               "${HOME}/.local/share/icons/hicolor/128x128/apps/${BIN_NAME}.png" \
-               "${HOME}/.local/share/icons/hicolor/256x256/apps/${BIN_NAME}.png" \
-               "${HOME}/.local/share/icons/hicolor/512x512/apps/${BIN_NAME}.png"; do
-        if [[ -e "$f" ]]; then dry rm -f "$f"; removed=true; fi
-      done
-      if [[ "$removed" == false ]]; then echo "No user-local Niri-Search files found."; fi
-      ;; 
-    *) echo "Uninstall the package with your package manager (package: niri-search)." ;;
-  esac
+  removed=false
+  for f in "${PREFIX}/bin/${BIN_NAME}" \
+           "${PREFIX}/share/applications/Niri-Search.desktop" \
+           "${PREFIX}/share/icons/hicolor/128x128/apps/${BIN_NAME}.png" \
+           "${PREFIX}/share/icons/hicolor/256x256/apps/${BIN_NAME}.png" \
+           "${PREFIX}/share/icons/hicolor/512x512/apps/${BIN_NAME}.png"; do
+    if [[ -e "$f" ]]; then dry rm -f "$f"; removed=true; fi
+  done
+  if [[ "$removed" == false ]]; then echo "No user-local Niri-Search files found."; fi
   echo ""
   echo "Local state is kept. To remove it as well (config, index, history):"
   echo "  rm -rf ~/.look"
@@ -124,33 +106,27 @@ do_uninstall() {
 
 if [[ "$UNINSTALL" == true ]]; then do_uninstall; exit 0; fi
 
-# --- NixOS: native packages only ---
-if [[ "$FAMILY" == nixos ]]; then
-  cat <<EOF
-NixOS cannot install .deb/.rpm. Use the flake instead:
-
-  nix run 'github:${REPO}?dir=apps/linows'
-
-or declaratively:
-
-  { inputs, ... }: {
-    imports = [ inputs.niri-search-nix.homeModules.default ];
-    programs.lookapp.enable = true;
-  }
-
-(Flake input: niri-search-nix.url = "github:${REPO}?dir=apps/linows";)
-EOF
-  exit 0
+# --- Resolve version ---
+if [[ -z "$VERSION" ]]; then
+  VERSION="$(resolve_latest_version || true)"
+  if [[ -z "$VERSION" ]]; then
+    echo "Unable to resolve the latest version tag from GitHub." >&2
+    echo "Set NIRI_SEARCH_VERSION or pass --version <x.y.z>." >&2
+    exit 1
+  fi
 fi
 
-# --- Arch: no native package published; build from source ---
+TMP_DIR="$(mktemp -d)"
+cleanup() { rm -rf "$TMP_DIR"; }
+trap cleanup EXIT
+
+# --- Build from source ---
 # Deps mirror apps/linows/BUILDING.md ("Arch Linux"). The build itself is a
 # plain `cargo tauri build --no-bundle`; install is user-local (~/.local).
 ARCH_DEPS=(base-devel rustup webkit2gtk-4.1 gtk3 libsoup3 glib2 cairo pango
   gdk-pixbuf2 harfbuzz dbus alsa-lib librsvg openssl pkg-config)
 
-install_arch_from_source() {
-  need git
+install_from_source() {
   need pacman
   log "Installing build dependencies (pacman, needs root)..."
   dry sudo pacman -S --needed --noconfirm "${ARCH_DEPS[@]}"
@@ -170,8 +146,7 @@ install_arch_from_source() {
     echo "    [dry-run] git clone --depth 1 --branch v${VERSION} https://github.com/${REPO}.git"
   else
     git clone --depth 1 --branch "v${VERSION}" "https://github.com/${REPO}.git" "$src" || {
-      echo "No tag 'v${VERSION}' in ${REPO}. Pick an existing release:" >&2
-      echo "  https://github.com/${REPO}/releases" >&2
+      echo "No tag 'v${VERSION}' in ${REPO}. Pass --version <x.y.z> with an existing tag." >&2
       exit 1
     }
   fi
@@ -181,23 +156,22 @@ install_arch_from_source() {
   else
     (cd "${src}/apps/linows" && cargo tauri build --no-bundle)
   fi
-  local prefix="${HOME}/.local"
-  log "Installing user-locally under ${prefix} (no root needed)..."
-  dry mkdir -p "${prefix}/bin" "${prefix}/share/applications" \
-    "${prefix}/share/icons/hicolor/128x128/apps" \
-    "${prefix}/share/icons/hicolor/256x256/apps" \
-    "${prefix}/share/icons/hicolor/512x512/apps"
-  dry cp "${src}/apps/linows/src-tauri/target/release/${BIN_NAME}" "${prefix}/bin/${BIN_NAME}"
+  log "Installing user-locally under ${PREFIX} (no root needed)..."
+  dry mkdir -p "${PREFIX}/bin" "${PREFIX}/share/applications" \
+    "${PREFIX}/share/icons/hicolor/128x128/apps" \
+    "${PREFIX}/share/icons/hicolor/256x256/apps" \
+    "${PREFIX}/share/icons/hicolor/512x512/apps"
+  dry cp "${src}/apps/linows/src-tauri/target/release/${BIN_NAME}" "${PREFIX}/bin/${BIN_NAME}"
   dry cp "${src}/apps/linows/src-tauri/icons/128x128.png" \
-    "${prefix}/share/icons/hicolor/128x128/apps/${BIN_NAME}.png"
+    "${PREFIX}/share/icons/hicolor/128x128/apps/${BIN_NAME}.png"
   dry cp "${src}/apps/linows/src-tauri/icons/128x128@2x.png" \
-    "${prefix}/share/icons/hicolor/256x256/apps/${BIN_NAME}.png"
+    "${PREFIX}/share/icons/hicolor/256x256/apps/${BIN_NAME}.png"
   dry cp "${src}/apps/linows/src-tauri/icons/icon.png" \
-    "${prefix}/share/icons/hicolor/512x512/apps/${BIN_NAME}.png"
+    "${PREFIX}/share/icons/hicolor/512x512/apps/${BIN_NAME}.png"
   if [[ "$DRY_RUN" == true ]]; then
-    echo "    [dry-run] write ${prefix}/share/applications/Niri-Search.desktop"
+    echo "    [dry-run] write ${PREFIX}/share/applications/Niri-Search.desktop"
   else
-    cat > "${prefix}/share/applications/Niri-Search.desktop" <<EOF
+    cat > "${PREFIX}/share/applications/Niri-Search.desktop" <<EOF
 [Desktop Entry]
 Categories=Utility;
 Comment=Keyboard-first launcher for the Niri compositor
@@ -209,74 +183,10 @@ Terminal=false
 Type=Application
 EOF
   fi
-  log "Make sure ${prefix}/bin is on your PATH."
+  log "Make sure ${PREFIX}/bin is on your PATH."
 }
 
-if [[ "$FAMILY" == unknown ]]; then
-  echo "Unsupported distro '${DISTRO_ID}'. Grab a package by hand:" >&2
-  echo "  https://github.com/${REPO}/releases" >&2
-  exit 1
-fi
-
-# --- Resolve version ---
-if [[ -z "$VERSION" ]]; then
-  VERSION="$(resolve_latest_version || true)"
-  if [[ -z "$VERSION" ]]; then
-    echo "Unable to resolve the latest version from GitHub." >&2
-    echo "Set NIRI_SEARCH_VERSION or pass --version <x.y.z>." >&2
-    exit 1
-  fi
-fi
-
-TMP_DIR="$(mktemp -d)"
-cleanup() { rm -rf "$TMP_DIR"; }
-trap cleanup EXIT
-
-download() {
-  local url="$1" out="$2"
-  log "Downloading: ${url}"
-  if [[ "$DRY_RUN" == true ]]; then echo "    [dry-run] curl -fL $url -o $out"; return 0; fi
-  curl -fL "$url" -o "$out" || {
-    echo "Download failed. Check that version '${VERSION}' exists at:" >&2
-    echo "  https://github.com/${REPO}/releases" >&2
-    exit 1
-  }
-}
-
-install_deb() {
-  need dpkg
-  local name="niri-search_${VERSION}_amd64.deb"
-  local path="${TMP_DIR}/${name}"
-  download "https://github.com/${REPO}/releases/download/v${VERSION}/${name}" "$path"
-  # Read the real Package: field instead of assuming it, so a future
-  # productName change cannot desync the remove/status checks below.
-  local pkg="niri-search"
-  if [[ "$DRY_RUN" != true ]]; then pkg="$(dpkg-deb -f "$path" Package 2>/dev/null || echo niri-search)"; fi
-  if dpkg -s "$pkg" >/dev/null 2>&1; then log "Removing previous ${pkg}..."; dry sudo dpkg -r "$pkg"; fi
-  log "Installing ${name}..."
-  dry sudo dpkg -i "$path"
-  if [[ "$DRY_RUN" != true ]] && ! dpkg -s "$pkg" >/dev/null 2>&1; then
-    log "Fixing missing dependencies..."
-    dry sudo apt-get install -f -y
-  fi
-}
-
-install_rpm() {
-  local name="niri-search-${VERSION}-1.x86_64.rpm"
-  local path="${TMP_DIR}/${name}"
-  download "https://github.com/${REPO}/releases/download/v${VERSION}/${name}" "$path"
-  log "Installing ${name} (the package manager resolves dependencies)..."
-  case "$FAMILY" in
-    redhat) dry sudo dnf install -y "$path" ;;
-    suse)   dry sudo zypper --no-confirm install "$path" ;;
-  esac
-}
-
-case "$FAMILY" in
-  debian) install_deb ;;
-  redhat|suse) install_rpm ;;
-  arch) install_arch_from_source ;;
-esac
+install_from_source
 
 # --- Optional Niri wiring ---
 configure_niri() {

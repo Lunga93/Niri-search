@@ -26,10 +26,10 @@ A good bug report must include:
 - exact reproduction steps (numbered)
 - frequency (`always`, `sometimes`, `once`)
 - environment details:
-  - OS + version (e.g. Ubuntu 24.04, Fedora 42)
-  - Niri-Search app version or commit SHA
-  - install method:
-    - Linux: `.deb`, `.rpm`, NixOS flake, or a local `cargo tauri dev` build
+- OS + version (e.g. Arch Linux, CachyOS, NixOS)
+- Niri-Search app version or commit SHA
+- install method:
+  - Linux: installer (`scripts/linux/install-niri-search.sh`), NixOS flake, or a local `cargo tauri dev` build
 - logs or screenshots if available
 
 If crash related, include:
@@ -111,11 +111,10 @@ git merge origin/main
 
 ## CI behavior
 
-CI runs the release workflow (`.github/workflows/release-linux.yml`) on
-`v*` tags and manual dispatch: core workspace tests first, then the
-`.deb` (Ubuntu) and `.rpm` (Fedora container) builds, published to
-GitHub Releases with checksums. There is no PR-gating CI; `main` stays
-releasable by convention and local checks (see Development setup).
+There is no PR-gating CI. Releasing is a `v*` tag: the installer
+(`scripts/linux/install-niri-search.sh`) resolves the latest tag and
+builds from source on Arch/CachyOS. `main` stays releasable by
+convention and local checks (see Development setup).
 
 ## Pull request checklist
 

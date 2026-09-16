@@ -6,15 +6,13 @@ A keyboard-first, local-first launcher for Linux (Niri compositor). Open apps, f
 
 [![Install](https://img.shields.io/badge/install-555)](#install)
 [![Linux](https://img.shields.io/badge/Linux-brightgreen?logo=linux&logoColor=white)](#linux)
-[![Latest release](https://img.shields.io/github/v/release/Lunga93/Niri-search)](https://github.com/Lunga93/Niri-search/releases/latest)
-[![Downloads](https://img.shields.io/github/downloads/Lunga93/Niri-search/total)](https://github.com/Lunga93/Niri-search/releases)
 [![License: GPLv3](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
 
 📖 [User guide](docs/user-guide.md)
 
 https://github.com/user-attachments/assets/167b028b-04b2-4c62-ba93-c2321482ac94
 
-Results land as fast as you can type. A Rust core under a Tauri app, riding the system WebView instead of shipping a browser like Electron does. No background daemons. Your index, clipboard, and history stay on your machine; no telemetry.
+Results land as fast as you can type. A Rust core under a Tauri app, riding the system WebView instead of shipping a browser like Electron does. No background daemons. Your index, clipboard, and history stay on your machine; no telemetry. Clipboard history (`c"`) stores recent text clips for the running app session only (in-memory, current session).
 
 <details>
 <summary><b>How it compares</b></summary>
@@ -33,43 +31,23 @@ Results land as fast as you can type. A Rust core under a Tauri app, riding the 
 
 ## Install
 
-Released artifacts are **x86_64 Linux only**. ARM builds aren't published; if you need one, please open an issue.
-
-**Ubuntu/Debian (.deb) and Fedora/RHEL/openSUSE (.rpm) — recommended:**
+**Arch Linux and CachyOS** (x86_64) — the installer builds from source:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Lunga93/Niri-search/main/scripts/linux/install-niri-search.sh | bash
 ```
 
-The installer detects your distro, downloads the matching package from
-[Releases](https://github.com/Lunga93/Niri-search/releases), resolves
-dependencies with your package manager, and (with `--configure-niri`)
-adds the Niri keybind stanza. See `--help` for `--version`, `--repo`,
+It clones the latest release tag, installs the pacman build dependencies
+(base-devel, rustup, webkit2gtk-4.1, gtk3, …), builds with
+`cargo tauri build --no-bundle`, and installs user-locally under
+`~/.local` (only the pacman deps need root). Add `--configure-niri` to
+append the Niri keybind stanza (Alt+Space toggle, spawn-at-startup,
+floating window rule). See `--help` for `--version`, `--repo`,
 `--uninstall`, and `--dry-run`.
 
-Or download the package manually from
-[Releases](https://github.com/Lunga93/Niri-search/releases) and install it:
+Other distros: build from source per [apps/linows/BUILDING.md](apps/linows/BUILDING.md).
 
-```bash
-# Debian/Ubuntu
-sudo dpkg -i niri-search_*_amd64.deb
-sudo apt-get install -f   # only if dpkg reports missing dependencies
-
-# Fedora/RHEL (dnf resolves dependencies itself)
-sudo dnf install ./niri-search-*.rpm
-
-# openSUSE
-sudo zypper install ./niri-search-*.rpm
-```
-
-**Arch Linux:** no native package is published, so the same installer
-builds from source (pacman deps need root; the app lands in `~/.local`):
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/Lunga93/Niri-search/main/scripts/linux/install-niri-search.sh | bash
-```
-
-**NixOS (flake):**
+**After installing:**
 
 After installing, launch with `lookapp` from a terminal, or search "Niri-Search" in your app launcher. Press `Alt+Space` to toggle the window at any time. Niri-Search autostarts on login by default (on full DEs like GNOME/KDE).
 
@@ -151,7 +129,7 @@ niri has no API to add binds at runtime, so `Alt+Space` has to go in `~/.config/
 spawn-at-startup "lookapp"
 
 binds {
-    Alt+Space allow-inhibiting=false { spawn "gdbus" "call" "--session" "--dest" "com.look.Desktop" "--object-path" "/com/look/Desktop" "--method" "com.look.Desktop.Toggle"; }
+    Alt+Space allow-inhibiting=false hotkey-overlay-title="Niri-Search" { spawn "gdbus" "call" "--session" "--dest" "com.look.Desktop" "--object-path" "/com/look/Desktop" "--method" "com.look.Desktop.Toggle"; }
 }
 ```
 
@@ -199,7 +177,7 @@ Uninstall:
 curl -fsSL https://raw.githubusercontent.com/Lunga93/Niri-search/main/scripts/linux/install-niri-search.sh | bash -s -- --uninstall
 ```
 
-The terminal command is `lookapp` (binary name, unchanged by the rebrand).
+The terminal command is `lookapp` (binary name, unchanged by the rebrand). Namespace map: repo/releases are `Lunga93/Niri-search`, code IDs are `look`/`com.look.Desktop`, upstream fork credit is `kunkka19xx/look`.
 
 </details>
 
@@ -235,7 +213,7 @@ Switch in `Settings > Appearance`.
 
 - 📘 [Docs site](https://noah-code.com/docs/look) - hosted, searchable user guide and reference
 - [User guide (in-repo)](docs/user-guide.md) - full feature reference, shortcuts, configuration, permissions, troubleshooting
-- [Architecture](docs/architecture.md) - how the Swift app + Rust core fit together
+- [Architecture](docs/architecture.md) - how the Tauri 2 app (vanilla HTML/CSS/JS frontend) + Rust core fit together (no FFI layer, no second shell)
 - [Features](docs/features.md) - what's shipped, what's planned
 - [Contributing](CONTRIBUTING.md) - how to contribute
 - [Your own sources](docs/user-sources.md) - declare custom rows from directories, files, and commands

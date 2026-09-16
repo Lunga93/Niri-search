@@ -125,57 +125,9 @@ cargo tauri build     # production
 ```bash
 nix develop
 cargo tauri dev
-cargo tauri build --bundles deb    # build .deb package
 ```
 
-## Testing on Ubuntu VM (virt-manager)
-
-**Build .deb on NixOS host:**
-
-```bash
-nix develop --command cargo tauri build --bundles deb
-# Output: src-tauri/target/release/bundle/deb/Niri-Search_*.deb
-```
-
-**Get VM IP** (on the VM):
-
-```bash
-ip addr | grep inet
-# Niri-Search for 192.168.122.x on enp1s0
-```
-
-**Prerequisites on VM** (first time only):
-
-```bash
-sudo apt install openssh-server patchelf
-```
-
-**Deploy** (from host, run as one script):
-
-```bash
-scp -O apps/linows/src-tauri/target/release/bundle/deb/Niri-Search_*.deb kunkka@192.168.122.x:/tmp/
-```
-
-**Install on VM:**
-
-```bash
-pkill lookapp                              # stop running instance
-sudo dpkg -r niri-search && sudo dpkg -i /tmp/niri-search_*.deb
-sudo patchelf --set-interpreter /lib64/ld-linux-x86-64.so.2 /usr/bin/lookapp
-lookapp                                    # launch from terminal to see logs
-```
-
-> **Why?** NixOS builds link against `/nix/store/.../ld-linux-x86-64.so.2` which doesn't
-> exist on Ubuntu/Debian. `patchelf` rewrites it to the standard `/lib64/ld-linux-x86-64.so.2`.
-> Without this, the binary shows `cannot execute: required file not found`.
-> For proper release builds, use Ubuntu/Debian CI or add a patchelf step to the build script.
-
-**VM without GPU** (no `/dev/dri` or virtual GPU driver): the app auto-detects this and
-disables hardware acceleration via the WebKitGTK API (`set_hardware_acceleration_policy(Never)`).
-
-**GNOME Shell extension** requires log out/in after first install to load.
-
-**Keyboard shortcuts:**
+## Keyboard shortcuts
 
 | Shortcut      | Action                  |
 | ------------- | ----------------------- |
