@@ -2567,6 +2567,7 @@ dependencies = [
  "futures-util",
  "gtk",
  "image",
+ "libc",
  "libloading 0.8.9",
  "look-answers",
  "look-calc",

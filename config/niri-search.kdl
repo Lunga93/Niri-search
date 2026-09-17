@@ -14,6 +14,9 @@
 
 // Start the background service on login. The window itself is summoned
 // with the bind below; it hides instead of quitting.
+// Prefer the absolute binary path here: login sessions often lack
+// ~/.local/bin on PATH and a bare "lookapp" would silently fail to start
+// (the installer writes the absolute path for this reason).
 spawn-at-startup "lookapp"
 
 binds {

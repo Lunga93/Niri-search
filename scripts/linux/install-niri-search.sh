@@ -28,8 +28,8 @@ Usage: install-niri-search.sh [OPTIONS]
 Options:
   --version <x.y.z>   Install a specific version (default: latest v* tag)
   --repo <owner/repo> GitHub repository (default: ${REPO})
-  --configure-niri    Append spawn-at-startup, Alt+Space bind and window
-                      rule to ~/.config/niri/config.kdl (backs it up first)
+  --configure-niri    Wire niri via an include file (Alt+Space toggle,
+                      Alt+Shift+Q quit, login autostart, floating rule)
   --uninstall         Remove Niri-Search (user-local files under ~/.local)
   --dry-run           Show what would happen without doing it
   -h, --help          Show this help
@@ -85,9 +85,74 @@ if [[ "$DISTRO_ID" != "arch" && "$DISTRO_ID" != "cachyos" && "$DISTRO_LIKE" != *
   exit 1
 fi
 
+# --- App lifecycle: stop the old instance, (re)start the new one ---
+# The installer manages the running service so nobody has to pkill/relaunch
+# by hand. Restarting matters: after the binary file is replaced, the live
+# process still runs the OLD build (old inode), so without a restart the
+# D-Bus names keep answering from stale code and Alt+Space misbehaves.
+stop_app() {
+  pgrep -x "${BIN_NAME}" >/dev/null 2>&1 || return 0
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "    [dry-run] stop running ${BIN_NAME} (D-Bus Quit, pkill fallback)"
+    return 0
+  fi
+  # Graceful first: Quit exists on the bus since v0.2.1; older binaries
+  # just fail this call and fall through to TERM below.
+  if command -v gdbus >/dev/null 2>&1; then
+    gdbus call --session --dest "${DBUS_DEST}" --object-path "${DBUS_PATH}" \
+      --method "${DBUS_DEST}.Quit" >/dev/null 2>&1 || true
+  fi
+  for _ in {1..15}; do
+    pgrep -x "${BIN_NAME}" >/dev/null 2>&1 || return 0
+    sleep 0.2
+  done
+  pkill -x "${BIN_NAME}" >/dev/null 2>&1 || true
+  sleep 0.5
+}
+
+start_app() {
+  local bin="${PREFIX}/bin/${BIN_NAME}"
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "    [dry-run] start ${bin} detached and wait for its D-Bus name"
+    return 0
+  fi
+  # Belt and suspenders: -d detaches the app itself (new session, stdio to
+  # /dev/null), while the shell-level setsid keeps even a -d-less binary
+  # (e.g. installing an older --version tag) from blocking this installer.
+  if command -v setsid >/dev/null 2>&1; then
+    ( setsid "${bin}" -d </dev/null >/dev/null 2>&1 & )
+  else
+    ( "${bin}" -d </dev/null >/dev/null 2>&1 & )
+  fi
+  local _
+  for _ in {1..25}; do
+    pgrep -x "${BIN_NAME}" >/dev/null 2>&1 && break
+    sleep 0.2
+  done
+  if ! pgrep -x "${BIN_NAME}" >/dev/null 2>&1; then
+    echo "Could not confirm ${BIN_NAME} started; launch it by hand: ${BIN_NAME} -d" >&2
+    return 0
+  fi
+  # A live process is not enough: Alt+Space only works once the D-Bus
+  # name is owned, which happens a moment after startup.
+  if command -v busctl >/dev/null 2>&1; then
+    for _ in {1..50}; do
+      if busctl --user list 2>/dev/null | grep -q "${DBUS_DEST}"; then
+        log "Niri-Search is running: Alt+Space toggles, Alt+Shift+Q quits."
+        return 0
+      fi
+      sleep 0.2
+    done
+    echo "${BIN_NAME} is running but its D-Bus name did not appear; Alt+Space may not work yet." >&2
+  else
+    log "Niri-Search is running: Alt+Space toggles, Alt+Shift+Q quits."
+  fi
+}
+
 # --- Uninstall (user-local files only) ---
 do_uninstall() {
   log "Removing Niri-Search..."
+  stop_app
   removed=false
   for f in "${PREFIX}/bin/${BIN_NAME}" \
            "${PREFIX}/share/applications/Niri-Search.desktop" \
@@ -96,12 +161,19 @@ do_uninstall() {
            "${PREFIX}/share/icons/hicolor/512x512/apps/${BIN_NAME}.png"; do
     if [[ -e "$f" ]]; then dry rm -f "$f"; removed=true; fi
   done
+  # Login autostart entry is app-managed; remove it only if it points at
+  # our binary, so we never delete a user's unrelated file.
+  local autostart_file="${HOME}/.config/autostart/look.desktop"
+  if [[ -f "$autostart_file" ]] && grep -q "Exec=.*${BIN_NAME}" "$autostart_file"; then
+    dry rm -f "$autostart_file"; removed=true
+  fi
   if [[ "$removed" == false ]]; then echo "No user-local Niri-Search files found."; fi
   echo ""
   echo "Local state is kept. To remove it as well (config, index, history):"
   echo "  rm -rf ~/.look"
-  echo "To remove the Niri stanza this installer may have added:"
-  echo "  delete the block between '# >>> niri-search >>>' markers in ~/.config/niri/config.kdl"
+  echo "To remove the Niri wiring this installer may have added:"
+  echo "  delete the '// >>> niri-search' include block in ~/.config/niri/config.kdl"
+  echo "  and delete ~/.config/niri/niri-search.kdl"
 }
 
 if [[ "$UNINSTALL" == true ]]; then do_uninstall; exit 0; fi
@@ -185,7 +257,7 @@ install_from_source() {
 [Desktop Entry]
 Categories=Utility;
 Comment=Keyboard-first launcher for the Niri compositor
-Exec=${BIN_NAME}
+Exec=${PREFIX}/bin/${BIN_NAME}
 StartupWMClass=${BIN_NAME}
 Icon=${BIN_NAME}
 Name=Niri-Search
@@ -193,12 +265,20 @@ Terminal=false
 Type=Application
 EOF
   fi
-  if [[ "$DRY_RUN" != true ]] && pgrep -x "${BIN_NAME}" >/dev/null 2>&1; then
-    echo "Note: an older Niri-Search instance is still running. Its binary"
-    echo "      just changed, so quit it before launching again:"
-    echo "        pkill -x ${BIN_NAME}"
-    echo "      The new build adds a global Alt+Shift+Q quit bind (niri)."
+  # Point the login autostart entry (app-managed, keyed to the last-run
+  # binary, which may be a build-tree path) at the installed binary, so
+  # login autostart survives cargo clean / repo moves.
+  if [[ "$DRY_RUN" == true ]]; then
+    echo "    [dry-run] point ~/.config/autostart/look.desktop Exec at ${PREFIX}/bin/${BIN_NAME} (if present)"
+  else
+    local autostart_file="${HOME}/.config/autostart/look.desktop"
+    if [[ -f "$autostart_file" ]]; then
+      sed -i "s|^Exec=.*|Exec=${PREFIX}/bin/${BIN_NAME}|" "$autostart_file"
+      log "Login autostart now points at ${PREFIX}/bin/${BIN_NAME}."
+    fi
   fi
+  stop_app
+  start_app
   log "Make sure ${PREFIX}/bin is on your PATH."
 }
 
@@ -259,7 +339,9 @@ configure_niri() {
 // Regenerate with: install-niri-search.sh --configure-niri
 // The binary is ${BIN_NAME} and the D-Bus interface is ${DBUS_DEST}
 
-spawn-at-startup "${BIN_NAME}"
+// Absolute path: login sessions often lack ~/.local/bin on PATH, and a
+// bare "${BIN_NAME}" would silently fail to autostart here.
+spawn-at-startup "${PREFIX}/bin/${BIN_NAME}"
 
 binds {
     Alt+Space allow-inhibiting=false hotkey-overlay-title="Niri-Search" { spawn "gdbus" "call" "--session" "--dest" "${DBUS_DEST}" "--object-path" "${DBUS_PATH}" "--method" "${DBUS_DEST}.Toggle"; }
@@ -306,11 +388,11 @@ if [[ "$CONFIGURE_NIRI" == true ]]; then configure_niri; fi
 # --- Done ---
 cat <<EOF
 
-Niri-Search v${VERSION} installed!
+Niri-Search v${VERSION} installed and started!
 
-Launch:
-  ${BIN_NAME}            # from a terminal (starts the background service)
-  Alt+Space              # global toggle (after first launch)
+  Alt+Space              # global toggle (works now, no manual launch needed)
+  Alt+Shift+Q            # global quit
+  ${BIN_NAME} -d             # start the background service by hand, if ever needed
 EOF
 if [[ "$CONFIGURE_NIRI" == true ]]; then
   echo "  (Niri wired: niri-search.kdl include'd from ${NIRI_DIR}/config.kdl)"

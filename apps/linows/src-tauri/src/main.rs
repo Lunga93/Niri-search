@@ -544,11 +544,68 @@ fn focus_loss_means_dismiss() -> bool {
     !cfg!(target_os = "linux")
 }
 
+/// Env marker set on the detached -d/--daemon child so it does not
+/// re-daemonize itself (it inherits the parent's argv, which has -d).
+#[cfg(target_os = "linux")]
+const DAEMON_CHILD_ENV: &str = "LOOK_DAEMON_CHILD";
+
+/// Re-exec ourselves detached (new session, stdio to /dev/null) and return,
+/// so `lookapp -d` starts the background service and gives the terminal
+/// back immediately. The parent exits before any Tauri/single-instance
+/// setup runs; the child initializes the D-Bus names as the real instance.
+#[cfg(target_os = "linux")]
+fn daemonize_self() {
+    use std::os::unix::process::CommandExt;
+    use std::process::Stdio;
+
+    let exe = std::env::current_exe().unwrap_or_else(|_| {
+        eprintln!("look: cannot locate own executable for -d");
+        std::process::exit(1);
+    });
+    let mut cmd = std::process::Command::new(exe);
+    cmd.env(DAEMON_CHILD_ENV, "1")
+        .stdin(Stdio::null())
+        .stdout(Stdio::null())
+        .stderr(Stdio::null());
+    // SAFETY: pre_exec runs between fork and exec in the child only. The
+    // closure calls nothing but setsid(), which has no interaction with
+    // Rust memory and cannot observe a partially-initialized state. (In
+    // edition 2024 the unsafe block covers the closure defined in it.)
+    unsafe {
+        cmd.pre_exec(|| {
+            if libc::setsid() < 0 {
+                return Err(std::io::Error::last_os_error());
+            }
+            Ok(())
+        });
+    }
+    match cmd.spawn() {
+        Ok(child) => println!(
+            "Niri-Search is running in the background (pid {}).",
+            child.id()
+        ),
+        Err(e) => {
+            eprintln!("look: failed to start background service: {e}");
+            std::process::exit(1);
+        }
+    }
+}
+
 fn main() {
     crash::install_panic_hook();
 
     if std::env::args().any(|a| a == "--version" || a == "-V") {
         println!("lookapp {}", env!("APP_VERSION"));
+        return;
+    }
+
+    // -d/--daemon: start the background service and give the terminal back.
+    // The parent never touches Tauri; the detached child runs the app.
+    #[cfg(target_os = "linux")]
+    if std::env::args().any(|a| a == "-d" || a == "--daemon")
+        && std::env::var_os(DAEMON_CHILD_ENV).is_none()
+    {
+        daemonize_self();
         return;
     }
 

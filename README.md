@@ -39,17 +39,19 @@ curl -fsSL https://raw.githubusercontent.com/Lunga93/Niri-search/main/scripts/li
 
 It clones the latest release tag, installs the pacman build dependencies
 (base-devel, rustup, webkit2gtk-4.1, gtk3, …), builds with
-`cargo tauri build --no-bundle`, and installs user-locally under
-`~/.local` (only the pacman deps need root). Add `--configure-niri` to
-append the Niri keybind stanza (Alt+Space toggle, spawn-at-startup,
-floating window rule). See `--help` for `--version`, `--repo`,
+`cargo tauri build --no-bundle`, installs user-locally under
+`~/.local` (only the pacman deps need root), then stops any running
+instance and starts the new build in the background — no manual
+relaunch needed. Add `--configure-niri` to wire niri via an include
+file (Alt+Space toggle, Alt+Shift+Q quit, login autostart, floating
+window rule). See `--help` for `--version`, `--repo`,
 `--uninstall`, and `--dry-run`.
 
 Other distros: build from source per [apps/linows/BUILDING.md](apps/linows/BUILDING.md).
 
 **After installing:**
 
-After installing, launch with `lookapp` from a terminal, or search "Niri-Search" in your app launcher. Press `Alt+Space` to toggle the window at any time. Niri-Search autostarts on login by default (on full DEs like GNOME/KDE).
+The installer already started the background service: press `Alt+Space` to toggle the window at any time (`Alt+Shift+Q` quits). To start it by hand later, run `lookapp -d` (detaches into the background); plain `lookapp` also works but holds the terminal. Niri-Search autostarts on login by default (on full DEs like GNOME/KDE).
 
 Uninstall:
 
