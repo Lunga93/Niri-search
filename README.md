@@ -221,6 +221,11 @@ Switch in `Settings > Appearance`.
 - [Writing a control](docs/writing-controls.md) - add a Quick Action toggle/button to the panel
 - [Development](DEVELOPMENT.md) - building locally, repo layout, release process
 
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) (issues, PRs, CLA) and
+[AGENTS.md](AGENTS.md) (repo conventions for contributors and agents).
+
 ## License
 
 Copyright (C) 2026 kunkka19xx
